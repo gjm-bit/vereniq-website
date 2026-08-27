@@ -1,0 +1,2 @@
+import { SiteLink as Link } from "@/src/components/site-link"; import type { Module } from "@/src/types/content";
+export function ModuleGrid({modules}:{modules:Module[]}){return <div className="module-list">{modules.map((m,index)=><Link className="module-row" href={`/modules/${m.slug}`} key={m.id}><span className="module-index">{String(index+1).padStart(2,"0")}</span><h3>{m.name}</h3><p>{m.shortDescription}</p><span className="btn-quiet">Meer informatie</span></Link>)}</div>}

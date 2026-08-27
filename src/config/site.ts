@@ -1,0 +1,1 @@
+export const site = { name:"Meer Vereniging", slogan:"Minder regelen. Meer verenigen.", email:"info@meervereniging.nl", url:process.env.NEXT_PUBLIC_SITE_URL || "https://meervereniging.nl", nav:[['De app','/app'],['Prijzen','/prijzen'],['Over ons & contact','/over-ons-contact']] } as const;

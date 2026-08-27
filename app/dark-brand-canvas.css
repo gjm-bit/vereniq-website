@@ -1,0 +1,10 @@
+/* Dark Brand Canvas v1: navy carries the brand; violet and blue stay accents. */
+body .header-surface{background:var(--brand-navy)}
+body .hero{background:var(--brand-navy)}
+.site-header .nav a:hover,.site-header .nav a:focus-visible{color:var(--brand-white);text-decoration-color:var(--brand-purple)}
+body .story-hero,body .story-origin,body .story-final{background:var(--brand-navy)}
+.story-hero .eyebrow,.story-trust .eyebrow,.story-final .eyebrow{position:relative;color:var(--brand-white);padding-left:16px}
+.story-hero .eyebrow::before,.story-trust .eyebrow::before,.story-final .eyebrow::before{position:absolute;top:.55em;left:0;width:9px;height:2px;background:var(--brand-gradient);content:""}
+.story-origin-mark{background:var(--brand-gradient);background-clip:text;color:transparent}
+.hero-product-stage .product-placeholder{background:rgb(255 255 255 / 4%)}
+.story-hero .btn-secondary,.story-trust .btn-secondary{border-color:var(--brand-white);color:var(--brand-white)}

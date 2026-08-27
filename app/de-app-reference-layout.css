@@ -1,0 +1,84 @@
+/* Reference-led composition for the CMS-owned app page. No visual here is a
+   fabricated product interface: media remains a CMS-selected product capture. */
+.cms-product-explorer .development-container { max-width: 1180px; }
+.cms-explorer-highlights { margin-top:54px; }
+.cms-explorer-highlights > h2 { margin:9px 0 22px; color:#fff; font-family:Georgia,serif; font-size:clamp(2rem,3.6vw,3.35rem); letter-spacing:-.045em; }
+.cms-explorer-highlights > div { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; }
+.cms-explorer-highlights article { position:relative; display:flex; flex-direction:column; overflow:hidden; border:1px solid rgb(255 255 255 / 12%); border-radius:14px; background:linear-gradient(180deg,rgb(255 255 255 / 6%),rgb(10 18 38 / 62%)); box-shadow:inset 0 1px rgb(255 255 255 / 8%); }
+/* Letterboxed stage, not a hard crop: every real capture - portrait mobile
+   or landscape desktop - stays fully visible and undistorted (object-fit:
+   contain), on a consistent dark stage so all four cards share one media
+   height regardless of the source screenshot's own aspect ratio. */
+.cms-explorer-highlights article > img { display:block; width:100%; height:230px; object-fit:contain; object-position:center; background:linear-gradient(160deg,#141b2e,#05070d 72%); padding:16px; box-sizing:border-box; }
+/* Index moved from an absolute badge floating on the image into normal flow,
+   directly under the media stage - same token style as the launcher's own
+   .cms-explorer-index, so the two sections read as one family. */
+.cms-explorer-highlights article > span { position:static; display:block; margin:16px 20px 0; padding:0; border-radius:0; background:none; backdrop-filter:none; color:#a78cf4; font-size:.7rem; letter-spacing:.13em; font-weight:800; }
+.cms-explorer-highlights article { padding-bottom:40px; }
+.cms-explorer-highlights article::after { content:"↗"; position:absolute; top:auto; bottom:14px; right:16px; display:grid; width:26px; height:26px; place-items:center; border-radius:999px; background:rgb(4 10 26 / 74%); color:#cdd8ff; font-size:.85rem; }
+.cms-explorer-highlights h3 { margin:10px 20px 8px; color:#fff; font-family:Georgia,serif; font-size:1.4rem; line-height:1.08; }
+.cms-explorer-highlights p,.cms-explorer-highlights .cms-rich-text { margin:0 20px 20px; color:#c9d3e6; font-size:.9rem; line-height:1.5; }
+@media (max-width:600px) { .cms-explorer-highlights > div { grid-template-columns:repeat(1,minmax(0,1fr)); } }
+
+/* Launcher grid - the authoritative, final-cascade responsive ladder for the
+   six real launcher worlds (overrides the stale 7-column values left over
+   from cms-product-explorer.css/de-app-polish.css's earlier 7-world grid).
+   Mobile-first: one column stacked, no horizontal scroll; 3 columns from
+   the tablet breakpoint up. Deliberately NOT 5/6-across at the desktop
+   breakpoint: with a 6th world (Musical & Theater) added, a 5-column
+   track would strand the 6th card alone on its own row, and a 6-column
+   track would cramp every tile - two clean, evenly filled rows of 3 reads
+   better than either at any width from 760px up, so the desktop
+   breakpoint intentionally keeps the same 3-column track as the tablet
+   fallback rather than widening further. */
+.cms-explorer-launcher { grid-template-columns:repeat(1,minmax(0,1fr)); gap:16px; }
+@media (min-width:760px) { .cms-explorer-launcher { grid-template-columns:repeat(3,minmax(0,1fr)); } }
+.cms-explorer-launcher button { display:flex; flex-direction:column; align-items:flex-start; gap:10px; padding:22px 20px 44px; min-height:200px; }
+.cms-explorer-launcher .cms-explorer-index { margin:0; }
+/* Icon container: larger, evenly padded box with the glyph flex-centered
+   both geometrically and optically - same treatment for all five worlds so
+   they read as one icon family regardless of each glyph's own shape. */
+.cms-explorer-launcher .cms-explorer-icon { margin:0; width:56px; height:56px; display:flex; align-items:center; justify-content:center; border-radius:14px; }
+.cms-explorer-launcher .cms-explorer-icon svg { width:28px; height:28px; }
+.cms-explorer-launcher strong { margin:0; font-size:1.08rem; }
+.cms-explorer-launcher small { margin:0; }
+/* Nested drill-down cards (children of a launcher world, e.g. Sport -> Voetbal,
+   or Voetbal -> Wedstrijden/Opstellingen/...) reuse the same real WorldIcon
+   glyph as their parent world (see cms-product-explorer.tsx) - the real app
+   has no icon of its own for any sub-screen. Same container size/centering/
+   accent-color treatment as the launcher so the two read as one icon family,
+   instead of the tiny, uncolored "." placeholder glyph this used to fall
+   back to for any label WorldIcon didn't recognize. */
+.cms-explorer-children .cms-explorer-icon { margin:0; width:56px; height:56px; display:flex; align-items:center; justify-content:center; border-radius:14px; border-color:var(--accent); background:var(--accent-wash); color:var(--accent); box-shadow:inset 0 1px rgb(255 255 255 / 10%),0 0 14px var(--accent-glow-soft); }
+.cms-explorer-children .cms-explorer-icon svg { width:28px; height:28px; }
+.cms-product-explorer ~ .section { padding:66px 0; background:#06142c; }
+.cms-product-explorer ~ .section .cms-copy h2 { margin-bottom:24px; font-size:clamp(2.4rem,4vw,4rem); line-height:1; }
+.cms-product-explorer ~ .section .cms-copy .cms-rich-text > ul { grid-template-columns:repeat(4,minmax(0,1fr)); }
+.cms-product-explorer ~ .section .cta-band { border:1px solid rgb(138 168 255 / 18%); border-radius:14px; background:linear-gradient(105deg,rgb(12 29 60 / 96%),rgb(32 22 94 / 84%)); }
+.cms-product-explorer ~ .development-principles { padding:68px 0 76px; }
+.cms-product-explorer ~ .development-principles .development-principle-grid { grid-template-columns:repeat(4,minmax(0,1fr)); }
+.cms-product-explorer ~ .development-principles .development-principle { min-height:220px; }
+.cms-product-explorer ~ .development-principles .development-principle img { display:block; width:100%; max-height:150px; margin:0 0 16px; object-fit:contain; border-radius:7px; background:#081326; }
+@media (max-width:900px) { .cms-explorer-highlights > div,.cms-product-explorer ~ .section .cms-copy .cms-rich-text > ul,.cms-product-explorer ~ .development-principles .development-principle-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+
+/* Sport -> Voetbal product showcase. This is the same CmsMicrodemo component
+   used standalone on other CMS pages (presentation:"microdemo" without the
+   explorer), so every rule here is scoped to .cms-product-explorer - it must
+   not leak into that generic, unrelated usage elsewhere on the site.
+   Tightens the oversized generic two-column box (large fixed padding/gap
+   made it read as one big empty container) and gives the capture its own
+   dark stage, matching the family already established for Uitgelicht. */
+.cms-product-explorer .cms-microdemo { padding:56px 0 0; background:none; }
+.cms-product-explorer .cms-microdemo-tabs { gap:6px; margin-bottom:14px; }
+.cms-product-explorer .cms-microdemo-tabs button { min-height:38px; padding:8px 14px; font-size:.86rem; }
+.cms-product-explorer .cms-microdemo-stage { grid-template-columns:minmax(0,.7fr) minmax(0,1.3fr); gap:clamp(20px,3.2vw,36px); min-height:0; padding:clamp(20px,2.8vw,32px); }
+/* Media stage: dark gradient + generous padding, same visual family as the
+   Uitgelicht card media. Deliberately NOT a fixed height like Uitgelicht's
+   230px - a single active capture (unlike a 4-card grid) can let a portrait
+   mobile screenshot stay narrower and a landscape desktop screenshot run
+   wider, each at its own natural size within a shared max-height band, so
+   neither is stretched or cropped to fit a one-size-fits-all box. */
+.cms-product-explorer .cms-microdemo-media { display:flex; align-items:center; justify-content:center; min-height:0; padding:18px; background:linear-gradient(160deg,#141b2e,#05070d 72%); }
+.cms-product-explorer .cms-microdemo-media img { width:auto; height:auto; max-width:100%; max-height:clamp(280px,34vw,480px); min-height:0; object-fit:contain; }
+.cms-product-explorer .cms-microdemo-media iframe { width:100%; height:auto; aspect-ratio:16/9; max-height:clamp(280px,34vw,480px); min-height:0; }
+@media (max-width:700px) { .cms-product-explorer .cms-microdemo-stage { padding:18px; } .cms-product-explorer .cms-microdemo-media img,.cms-product-explorer .cms-microdemo-media iframe { max-height:260px; } }

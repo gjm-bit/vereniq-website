@@ -1,0 +1,20 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist/client",
+  "functions": {
+    "api/handler.mjs": {
+      "includeFiles": "dist/server/**"
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/_cms-preview",
+      "destination": "/cms-preview"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/api/handler?path=/$1"
+    }
+  ]
+}

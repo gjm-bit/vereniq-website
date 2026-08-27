@@ -1,0 +1,19 @@
+/* Websitebeheer 3.1: constrained typography tokens shared by preview and public rendering. */
+.development-copy h1 { font-size: clamp(3rem, 6.5vw, 6rem); line-height: .92; overflow-wrap: anywhere; word-break: normal; }
+.development-copy h1.cms-hero-heading-large { font-size: clamp(3.4rem, 7.2vw, 7rem); }
+.development-copy h1.cms-hero-heading-xlarge { font-size: clamp(3.8rem, 8.4vw, 8rem); }
+.cms-hero-body-normal { font-size: 1.12rem; }
+.cms-hero-body-large { font-size: clamp(1.2rem, 2vw, 1.45rem); }
+.cms-rich-text .mv-text-lead { font-size: 1.18em; line-height: 1.6; }
+.cms-rich-text .mv-text-small { font-size: .9em; }
+.cms-rich-text .mv-text-h1 { font-size: 2em; }
+.cms-rich-text .mv-text-h2 { font-size: 1.5em; }
+.cms-rich-text .mv-text-h3 { font-size: 1.25em; }
+.cms-rich-text .mv-text-quote { border-left: 3px solid var(--brand-blue); padding-left: 1rem; font-style: italic; }
+.cms-rich-text .mv-size-small { font-size: .9em; }
+.cms-rich-text .mv-size-large { font-size: 1.2em; }
+.cms-rich-text .mv-weight-medium { font-weight: 600; }
+.cms-rich-text .mv-weight-bold { font-weight: 750; }
+.cms-rich-text .mv-color-light { color: var(--brand-white); }
+.cms-rich-text .mv-color-dark { color: var(--brand-navy); }
+.cms-rich-text .mv-color-accent { color: var(--brand-violet); }

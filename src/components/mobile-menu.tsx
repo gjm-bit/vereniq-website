@@ -1,0 +1,5 @@
+"use client";
+import { useEffect, useState } from "react";
+import { SiteLink as Link } from "@/src/components/site-link";
+import { site } from "@/src/config/site";
+export function MobileMenu(){const [open,setOpen]=useState(false);useEffect(()=>{const close=(event:KeyboardEvent)=>event.key==="Escape"&&setOpen(false);addEventListener("keydown",close);return()=>removeEventListener("keydown",close)},[]);return <div className="mobile-menu"><button type="button" className="mobile-menu-button" aria-expanded={open} aria-controls="mobile-main-nav" onClick={()=>setOpen(value=>!value)}>{open?"Sluit menu":"Menu"}</button>{open&&<button className="mobile-menu-backdrop" aria-label="Sluit menu" onClick={()=>setOpen(false)}/>}<nav id="mobile-main-nav" className="nav-mobile mobile-menu-links" aria-label="Mobiele hoofdnavigatie" hidden={!open}>{site.nav.map(([name,href])=><Link key={href} href={href} onClick={()=>setOpen(false)}>{name}</Link>)}<a href="https://beheer.meervereniging.nl" onClick={()=>setOpen(false)}>Inloggen</a><Link href="/demo" onClick={()=>setOpen(false)}>Probeer gratis</Link></nav></div>}

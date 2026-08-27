@@ -1,0 +1,4 @@
+.development-contact-intro::before {
+  font-size: 0;
+  background: linear-gradient(135deg, #8b36e8 0 44%, transparent 45% 55%, #2476f3 56% 100%);
+}
