@@ -26,7 +26,21 @@ html { background: var(--brand-white); }
 body { background: var(--brand-white); color: var(--brand-text); font-family: var(--mv-sans); line-height: 1.55; }
 .container { width: min(1220px, calc(100% - 48px)); }
 .section { padding: clamp(72px, 9vw, 132px) 0; }
-.section-mist, .section-soft { background: var(--brand-surface); }
+/* A light section sits inside a page that otherwise redefines --text-primary/
+   --text-secondary/--text-muted/--border-subtle to white-on-dark values
+   (app/dark-premium-v2.css). Re-scoping those same custom properties here -
+   rather than overriding every individual descendant selector - keeps every
+   current and future light-background element (lede, muted text, FAQ
+   answers, module descriptions, borders, ...) legible without having to
+   chase each one by hand. */
+.section-mist, .section-soft, .cms-bg-light {
+  --text-primary: var(--brand-text);
+  --text-secondary: var(--brand-text-muted);
+  --text-muted: var(--brand-text-muted);
+  --border-subtle: var(--brand-border);
+  background: var(--brand-surface);
+  color: var(--brand-text);
+}
 h1, h2 { font-family: var(--mv-display); font-weight: 400; letter-spacing: -.035em; }
 h1 { max-width: 820px; font-size: clamp(2.8rem, 6vw, 5.2rem); line-height: 1.02; }
 h2 { font-size: clamp(2rem, 4vw, 3.45rem); line-height: 1.06; }
@@ -38,9 +52,11 @@ h3 { font-weight: 700; letter-spacing: -.02em; }
 .btn-primary:hover, .btn-primary:focus-visible { background: #60349a; transform: translateY(-1px); }
 .btn-secondary { border-color: var(--brand-text); }
 .btn-secondary:hover, .btn-secondary:focus-visible { background: var(--brand-text); color: var(--brand-white); }
-.brand-lockup { width: 118px; height: 56px; object-fit: contain; object-position: left center; }
+.brand-mark { width: 47px; height: auto; object-fit: contain; flex: none; }
+.brand-word { font-family: var(--mv-sans); font-size: 1.15rem; font-weight: 800; letter-spacing: -.03em; white-space: nowrap; }
 .header-surface { background: var(--brand-violet-deep); border-bottom-color: rgb(255 255 255 / 20%); }
 .site-header { min-height: 74px; }
+.site-header .brand { color: var(--brand-white); }
 .nav { gap: 26px; font-size: .86rem; }
 .nav a { position: relative; }
 .nav a::after { position: absolute; right: 0; bottom: -8px; left: 0; height: 1px; background: currentColor; content: ""; opacity: 0; transform: scaleX(.4); transition: opacity .18s ease, transform .18s ease; }
@@ -78,9 +94,13 @@ h3 { font-weight: 700; letter-spacing: -.02em; }
 .module-row h3 { transition: color .18s ease; }
 .footer { padding: 72px 0; background: var(--brand-navy); }
 .footer-grid { grid-template-columns: 2fr 1fr 1fr; gap: 56px; }
-.footer .brand-lockup { filter: brightness(0) invert(1); }
 .footer a:hover, .footer a:focus-visible { color: var(--brand-white); text-decoration: underline; text-underline-offset: 4px; }
 .form { max-width: 720px; }
+.form-lede { max-width: 640px; margin-bottom: 34px; }
+.field-checkboxes { border: 0; margin: 0; padding: 0; }
+.field-checkboxes legend { padding: 0; margin: 0 0 8px; }
+.checkbox-option { display: flex; align-items: center; gap: 10px; min-height: 44px; font-size: .95rem; font-weight: 500; }
+.checkbox-option input { width: 20px; height: 20px; flex: none; accent-color: var(--brand-purple); }
 .field input, .field textarea, .field select { border-radius: 4px; border-color: var(--brand-border); }
 .field input:focus, .field textarea:focus, .field select:focus { border-color: var(--brand-purple); box-shadow: 0 0 0 3px rgb(117 65 184 / 15%); outline: 0; }
 .faq details { padding: 22px 0; }
