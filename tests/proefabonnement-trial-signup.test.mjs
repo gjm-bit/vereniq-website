@@ -65,9 +65,24 @@ test("activeren: verlopen en ongeldig/al-gebruikt zijn twee verschillende, nette
   assert.match(statusComponent, /Opnieuw aanvragen/);
 });
 
-test("needs_review is structureel onzichtbaar voor de bezoeker - de RPC-respons bevat het veld niet, dus de website kan het nooit tonen", async () => {
+test("needs_review is structureel onzichtbaar op het aanvraagmoment - de aanvraagroute leest/toont het veld niet", async () => {
   const route = await read("app/api/proefabonnement/aanvraag/route.ts");
   assert.doesNotMatch(route, /needs_review/i, "de aanvraagroute leest/toont needs_review niet - dat blijft uitsluitend zichtbaar voor een platformoperator in Master Beheer");
+});
+
+test("RECONCILIATIE: needs_review=true op de activatieroute geeft een nette 'wordt beoordeeld'-status, GEEN organisatie/admin-bootstrap vanuit de browser, geen beheer.meervereniging.nl", async () => {
+  const route = await read("app/api/proefabonnement/activeren/route.ts");
+  assert.match(route, /if \(activatedRow\.needs_review\)/, "de route controleert expliciet needs_review vóórdat enige admin-bootstrap-stap start");
+  assert.match(route, /status: 'held_for_review'/);
+  const heldForReviewBranch = route.slice(route.indexOf("if (activatedRow.needs_review)"), route.indexOf("const { organization_id: organizationId"));
+  assert.doesNotMatch(heldForReviewBranch, /begin_bootstrap_admin|bind_bootstrap_admin|prepare_bootstrap_admin|generateLink/, "bij needs_review mag er nooit een admin-bootstrap-stap of auth-link-aanroep plaatsvinden - de organisatie ontstaat pas na operator-goedkeuring");
+
+  const statusComponent = await read("src/components/trial-activation-status.tsx");
+  assert.match(statusComponent, /result\?\.status === "held_for_review"/);
+  assert.match(statusComponent, /Je aanvraag wordt beoordeeld/);
+  const heldForReviewRender = statusComponent.slice(statusComponent.indexOf('state.kind === "held_for_review"'), statusComponent.indexOf('if (state.kind === "expired")'));
+  assert.doesNotMatch(heldForReviewRender, /beheer\.meervereniging\.nl/i, "de 'wordt beoordeeld'-status verwijst nooit naar het interne beheerdomein");
+  assert.doesNotMatch(heldForReviewRender, /Opnieuw aanvragen/, "geen 'opnieuw aanvragen'-CTA - de aanvraag is al geslaagd, alleen de beoordeling loopt nog");
 });
 
 test("kleurpresets: geen hexcode wordt ooit als zichtbare tekst getoond, alleen als CSS-achtergrond van de swatch", async () => {

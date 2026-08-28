@@ -86,12 +86,28 @@ export async function POST(request: Request) {
     return json({ success: false, status: 'unexpected_failure', message: 'Activeren is niet gelukt. Probeer het later opnieuw.' }, 500);
   }
   const activatedRow = (activated.data as readonly {
-    organization_id: string; already_provisioned: boolean; contact_name: string; contact_email: string; organization_name: string; organization_slug: string;
+    organization_id: string | null; already_provisioned: boolean; needs_review: boolean; contact_name: string; contact_email: string; organization_name: string; organization_slug: string | null;
   }[] | null)?.[0];
   if (!activatedRow) {
     return json({ success: false, status: 'unexpected_failure', message: 'Activeren is niet gelukt. Probeer het later opnieuw.' }, 500);
   }
+
+  // RECONCILIATIE - expliciete operator-review: een sterk gelijkende
+  // organisatienaam wordt WEL geverifieerd (activated_at is al gezet door
+  // de RPC hierboven) maar krijgt bewust geen organisatie/admin-bootstrap
+  // totdat een Master Beheer-operator dit goedkeurt (platform_trial_signup_
+  // review_approve, zie organizations/review.tsx in het beheer-project).
+  // De aanvrager ziet uitsluitend een nette, niet-technische status - geen
+  // verwijzing naar beheer.meervereniging.nl, geen enkele provisioning-
+  // /bootstrap-actie vanuit de browser.
+  if (activatedRow.needs_review) {
+    return json({ success: true, status: 'held_for_review', organizationName: activatedRow.organization_name, message: 'Je aanvraag wordt beoordeeld. Je ontvangt bericht zodra je omgeving klaarstaat.' });
+  }
+
   const { organization_id: organizationId, contact_name: contactName, contact_email: contactEmail, organization_name: organizationName } = activatedRow;
+  if (!organizationId) {
+    return json({ success: false, status: 'unexpected_failure', message: 'Activeren is niet gelukt. Probeer het later opnieuw.' }, 500);
+  }
 
   // --- Stap 2: eerste beheerder provisionen (idempotent/hervatbaar) ---
   const bindingSecret = randomHex(32);

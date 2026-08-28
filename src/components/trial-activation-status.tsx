@@ -16,6 +16,7 @@ type ActivationState =
   | { kind: "loading" }
   | { kind: "activated"; organizationName: string; emailSent: boolean }
   | { kind: "already_active"; organizationName: string }
+  | { kind: "held_for_review"; message: string }
   | { kind: "expired" }
   | { kind: "invalid" }
   | { kind: "unexpected_failure"; message: string };
@@ -50,6 +51,8 @@ export function TrialActivationStatus() {
           setState({ kind: "activated", organizationName: result.organizationName ?? "je vereniging", emailSent: result.emailSent !== false });
         } else if (result?.status === "already_active") {
           setState({ kind: "already_active", organizationName: result.organizationName ?? "je vereniging" });
+        } else if (result?.status === "held_for_review") {
+          setState({ kind: "held_for_review", message: result.message ?? "Je aanvraag wordt beoordeeld." });
         } else if (result?.status === "expired") {
           setState({ kind: "expired" });
         } else if (result?.status === "invalid") {
@@ -94,6 +97,15 @@ export function TrialActivationStatus() {
         <h2>{state.organizationName} is al actief</h2>
         <p>Deze proefomgeving heeft al een beheerder met een ingesteld wachtwoord.</p>
         <a className="btn btn-primary" href="https://beheer.meervereniging.nl">Log in</a>
+      </div>
+    );
+  }
+
+  if (state.kind === "held_for_review") {
+    return (
+      <div className="status-panel status-panel-neutral" role="status" data-testid="trial-activation-held-for-review">
+        <h2>Je aanvraag wordt beoordeeld</h2>
+        <p>{state.message}</p>
       </div>
     );
   }
