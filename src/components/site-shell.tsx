@@ -1,5 +1,5 @@
 import Image from "next/image"; import { SiteLink as Link } from "./site-link"; import { site } from "@/src/config/site"; import { MobileMenu } from "./mobile-menu"; import { getOrganizationFooterData, type OrganizationFooterData } from "@/src/lib/public-cms";
-export function Brand(){return <Link className="brand" href="/" aria-label="Meer Vereniging — homepage"><Image className="brand-lockup" src="/brand/meer-vereniging-brand-lockup.png" alt="Meer Vereniging — Minder regelen. Meer verenigen." width={104} height={91} unoptimized/></Link>}
+export function Brand(){return <Link className="brand" href="/" aria-label="Meer Vereniging — homepage"><Image className="brand-mark" src="/brand/meer-vereniging-mark.png" alt="" width={263} height={191} unoptimized/><span className="brand-word">Meer Vereniging</span></Link>}
 export function Header(){return <div className="header-surface"><header className="container site-header"><Brand/><nav className="nav" aria-label="Hoofdnavigatie">{site.nav.map(([n,h])=><Link key={h} href={h}>{n}</Link>)}</nav><div className="header-actions"><a className="btn btn-secondary" href="https://beheer.meervereniging.nl">Inloggen</a><Link className="btn btn-primary" href="/demo">Probeer gratis</Link></div></header><MobileMenu/></div>}
 
 const SOCIAL_ICONS: Readonly<Record<keyof OrganizationFooterData["social"], { label: string; path: string }>> = {
@@ -18,7 +18,7 @@ function FooterOrganization({ footer }: { footer: OrganizationFooterData | null 
   const hasKvkBtw = Boolean(footer?.kvkNumber || footer?.btwNumber);
   return <div>
     {footer?.logoUrl
-      ? <Link className="brand" href="/" aria-label={`${footer.organizationName} — homepage`}><img className="brand-lockup" src={footer.logoUrl} alt={footer.organizationName} width={104} height={91} /></Link>
+      ? <Link className="brand" href="/" aria-label={`${footer.organizationName} — homepage`}><img className="brand-mark" src={footer.logoUrl} alt="" width={263} height={191} /><span className="brand-word">{footer.organizationName}</span></Link>
       : <Brand/>}
     <p style={{marginTop:16}}>Minder regelen. Meer verenigen.</p>
     <p>Software voor verenigingen die overzicht willen houden in hun dagelijkse organisatie.</p>

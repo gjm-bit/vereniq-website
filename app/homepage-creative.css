@@ -89,6 +89,7 @@
 .mv-compressed-account{background:#08172f;color:#fff}
 .mv-account-grid{display:grid;grid-template-columns:minmax(0,.8fr) minmax(260px,.9fr);gap:90px;align-items:center}
 .mv-account-grid h2{margin:0 0 18px}.mv-account-grid>.mv-product-visual{width:100%;border-color:rgb(255 255 255 / 18%);box-shadow:0 22px 42px rgb(0 0 0 / 25%)}
+.mv-account-grid-solo{grid-template-columns:minmax(0,1fr);max-width:760px}
 .mv-compressed-smart{background:linear-gradient(115deg,#06132b,#171044);color:#fff}.mv-tab-panel-smart>.mv-interface{min-height:330px}
 .mv-compressed-commerce{background:var(--mv-paper);color:var(--mv-ink)}
 .mv-commerce-grid{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(260px,.75fr);gap:90px;align-items:start}.mv-commerce-grid h2{margin:0 0 25px}.mv-compressed-commerce .mv-kicker{color:#7240ad}.mv-compressed-commerce .mv-section-body,.mv-commerce-price>p:not(.mv-kicker){color:#4e5a6f}
