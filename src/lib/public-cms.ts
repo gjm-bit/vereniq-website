@@ -68,24 +68,35 @@ type PreviewPageWire = Readonly<{
   snapshot: Readonly<{ blocks?: readonly CmsBlock[] }>;
 }>;
 
-/** Returns only an immutable, published page snapshot. */
+/**
+ * Returns only an immutable, published page snapshot. Faalt nooit hard: elke
+ * publieke route die dit aanroept behandelt `null` al als "geen live
+ * CMS-override, val terug op de hardcoded standaardpagina" - diezelfde val
+ * moet ook gelden als de RPC zelf (tijdelijk) niet lukt, anders breekt een
+ * CMS-storing de hele publieke website in plaats van alleen de CMS-override
+ * te missen. Zelfde patroon als getOrganizationFooterData hieronder.
+ */
 export async function getPublishedCmsPage(path: string): Promise<CmsPublicPage | null> {
   const pagePath = path === "/" ? null : path;
-  const rows = await callPublicRpc<readonly PublicPageWire[]>("website_public_page", {
-    org_slug: CMS_ORGANIZATION_SLUG,
-    page_path: pagePath,
-  });
-  const row = rows?.[0];
-  if (!row) return null;
+  try {
+    const rows = await callPublicRpc<readonly PublicPageWire[]>("website_public_page", {
+      org_slug: CMS_ORGANIZATION_SLUG,
+      page_path: pagePath,
+    });
+    const row = rows?.[0];
+    if (!row) return null;
 
-  return {
-    title: row.title,
-    seoTitle: row.seo_title,
-    seoDescription: row.seo_description,
-    noindex: row.noindex,
-    publishedAt: row.published_at,
-    blocks: [...(row.snapshot.blocks ?? [])].sort((a, b) => a.sortOrder - b.sortOrder),
-  };
+    return {
+      title: row.title,
+      seoTitle: row.seo_title,
+      seoDescription: row.seo_description,
+      noindex: row.noindex,
+      publishedAt: row.published_at,
+      blocks: [...(row.snapshot.blocks ?? [])].sort((a, b) => a.sortOrder - b.sortOrder),
+    };
+  } catch {
+    return null;
+  }
 }
 
 export type OrganizationFooterData = Readonly<{

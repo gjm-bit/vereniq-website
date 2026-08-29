@@ -16,6 +16,7 @@ import "./cms-product-explorer.css";
 import "./de-app-polish.css";
 import "./de-app-sections.css";
 import "./de-app-reference-layout.css";
+import "./trial-signup.css";
 
 export const metadata: Metadata = {
   title: { default: "Meer Vereniging — Minder regelen. Meer verenigen.", template: "%s | Meer Vereniging" },
