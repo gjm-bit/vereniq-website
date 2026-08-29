@@ -1,0 +1,3 @@
+Contact: mailto:info@meervereniging.nl
+Expires: 2027-08-29T23:59:59.000Z
+Canonical: https://meervereniging.nl/.well-known/security.txt
