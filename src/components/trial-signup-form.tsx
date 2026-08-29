@@ -30,6 +30,15 @@ export function TrialSignupForm({ initialTrialDays, presets, turnstileSiteKey }:
 
   const heroLabel = initialTrialDays ? `Probeer ${initialTrialDays} dagen gratis` : "Probeer gratis";
 
+  // Trial Onboarding UX 2.0: benoemde reisfasen (Vereniging -> Uitstraling ->
+  // Bevestigen) i.p.v. losse, willekeurige tussenkopjes - dit zijn de eerste
+  // drie van de vijf gedeelde fasenamen uit het productvoorstel; de laatste
+  // twee (Inrichten/Klaar) horen bij de tenant-app en worden hier niet getoond.
+  // "Huidige" fase volgt live uit de al ingevulde velden, geen aparte state.
+  const step1Done = organizationName.trim().length >= 2 && contactName.trim().length >= 2 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail.trim());
+  const step2Done = step1Done && Boolean(colorPresetKey);
+  const selectedPreset = presets.find((preset) => preset.key === colorPresetKey);
+
   function validate(): FieldErrors {
     const errors: FieldErrors = {};
     if (organizationName.trim().length < 2) errors.organizationName = "Vul de naam van je vereniging in (minimaal 2 tekens).";
@@ -80,7 +89,8 @@ export function TrialSignupForm({ initialTrialDays, presets, turnstileSiteKey }:
     return (
       <div className="status-panel status-panel-success" role="status" data-testid="trial-signup-success">
         <h2>Controleer je e-mail</h2>
-        <p>We hebben een bevestigingslink gestuurd naar <b>{contactEmail}</b>. Klik op de link om je proefabonnement voor <b>{organizationName}</b> te activeren.</p>
+        <p>We hebben een bevestigingslink gestuurd naar <b>{contactEmail}</b>.</p>
+        <p>De omgeving voor <b>{organizationName}</b> bestaat nog niet: pas zodra je op de link in die e-mail klikt, maken we deze voor je aan.</p>
         <p>Geen mail ontvangen? Controleer je spamfolder - de link is 48 uur geldig.</p>
       </div>
     );
@@ -89,17 +99,17 @@ export function TrialSignupForm({ initialTrialDays, presets, turnstileSiteKey }:
   return (
     <form className="form" onSubmit={handleSubmit} noValidate>
       <ol className="steps trial-progress" aria-label="Voortgang">
-        <li className={`step ${state.kind === "idle" || state.kind === "submitting" || state.kind === "error" || state.kind === "rate_limited" ? "is-current" : "is-done"}`}>
-          <h3>Gegevens invullen</h3>
-          <p>Vereniging, contactpersoon en kleurstijl.</p>
+        <li className={`step ${!step1Done ? "is-current" : "is-done"}`}>
+          <h3>Vereniging</h3>
+          <p>Naam van je vereniging, je eigen naam en e-mailadres.</p>
         </li>
-        <li className="step">
-          <h3>E-mail bevestigen</h3>
-          <p>Klik op de link die we je sturen.</p>
+        <li className={`step ${step1Done && !step2Done ? "is-current" : step2Done ? "is-done" : ""}`}>
+          <h3>Uitstraling</h3>
+          <p>Kies een kleurstijl en bekijk direct een voorbeeld.</p>
         </li>
-        <li className="step">
-          <h3>Klaar</h3>
-          <p>Je omgeving staat klaar, {heroLabel.toLowerCase()}.</p>
+        <li className={`step ${step1Done && step2Done ? "is-current" : ""}`}>
+          <h3>Bevestigen</h3>
+          <p>Verifieer en verstuur je aanvraag.</p>
         </li>
       </ol>
 
@@ -120,7 +130,7 @@ export function TrialSignupForm({ initialTrialDays, presets, turnstileSiteKey }:
       </label>
 
       <fieldset className="preset-fieldset">
-        <legend className="preset-legend">Kleurstijl van je omgeving</legend>
+        <legend className="preset-legend">Jouw uitstraling</legend>
         <div className="preset-grid" role="radiogroup" aria-label="Kleurstijl">
           {presets.map((preset) => (
             <button
@@ -138,6 +148,20 @@ export function TrialSignupForm({ initialTrialDays, presets, turnstileSiteKey }:
         </div>
         <p className="field-hint">Je kunt dit later altijd aanpassen in je verenigingsomgeving.</p>
         {fieldErrors.colorPresetKey ? <p className="field-error">{fieldErrors.colorPresetKey}</p> : null}
+
+        {selectedPreset ? (
+          <div className="uitstraling-preview" aria-hidden="true">
+            <p className="uitstraling-preview-label">Live voorbeeld</p>
+            <div className="uitstraling-preview-card">
+              <p className="uitstraling-preview-name">{organizationName.trim() || "Jouw vereniging"}</p>
+              <div className="uitstraling-preview-tile">
+                <span className="uitstraling-preview-accent" style={{ background: `linear-gradient(135deg, ${selectedPreset.primaryColor}, ${selectedPreset.secondaryColor})` }} />
+                <span>Eerstvolgende activiteit</span>
+              </div>
+              <span className="uitstraling-preview-btn" style={{ background: selectedPreset.accentColor || selectedPreset.primaryColor }}>Inschrijven</span>
+            </div>
+          </div>
+        ) : null}
       </fieldset>
 
       {turnstileSiteKey ? (
