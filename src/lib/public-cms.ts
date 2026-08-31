@@ -111,7 +111,7 @@ export type OrganizationFooterData = Readonly<{
   kvkNumber: string | null;
   btwNumber: string | null;
   logoUrl: string | null;
-  social: Readonly<{ facebook: string | null; instagram: string | null; youtube: string | null; linkedin: string | null; whatsapp: string | null }>;
+  social: Readonly<{ facebook: string | null; instagram: string | null; youtube: string | null; linkedin: string | null }>;
 }>;
 
 type OrganizationFooterWire = Readonly<{
@@ -121,7 +121,7 @@ type OrganizationFooterWire = Readonly<{
   contact_email: string | null; contact_phone: string | null;
   kvk_number: string | null; btw_number: string | null;
   logo_path: string | null;
-  facebook_url: string | null; instagram_url: string | null; linkedin_url: string | null; youtube_url: string | null; whatsapp_url: string | null;
+  facebook_url: string | null; instagram_url: string | null; linkedin_url: string | null; youtube_url: string | null;
 }>;
 
 /** Alleen het logo staat achter een nauw geschraapt anon-leesbeleid (organization_branding_read_public_logo) - vraagt hier telkens een verse signed URL op, geen publieke bucket. */
@@ -164,7 +164,7 @@ export async function getOrganizationFooterData(): Promise<OrganizationFooterDat
       contactEmail: row.contact_email, contactPhone: row.contact_phone,
       kvkNumber: row.kvk_number, btwNumber: row.btw_number,
       logoUrl,
-      social: { facebook: row.facebook_url, instagram: row.instagram_url, youtube: row.youtube_url, linkedin: row.linkedin_url, whatsapp: row.whatsapp_url },
+      social: { facebook: row.facebook_url, instagram: row.instagram_url, youtube: row.youtube_url, linkedin: row.linkedin_url },
     };
   } catch {
     return null;

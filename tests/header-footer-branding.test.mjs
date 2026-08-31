@@ -46,18 +46,29 @@ test("footer falls back cleanly to the official Brand when no CMS logo is config
   assert.doesNotMatch(footerHtml, /src=""/, "geen lege/kapotte src");
 });
 
-test("social platform config: exactly Facebook, Instagram, YouTube, LinkedIn, WhatsApp in that order", async () => {
+test("social platform config: exactly Facebook, Instagram in that order — product decision, not a temporary gap", async () => {
   const shellSource = await readFile(new URL("../src/components/site-shell.tsx", import.meta.url), "utf8");
   const socialIconsBlock = shellSource.match(/export const SOCIAL_ICONS[\s\S]*?\n};/)?.[0] ?? "";
   const declaredKeys = [...socialIconsBlock.matchAll(/^\s*(\w+):\s*{\s*label:\s*"([^"]+)"/gm)].map(([, key, label]) => ({ key, label }));
-  assert.deepEqual(declaredKeys.map((entry) => entry.key), ["facebook", "instagram", "youtube", "linkedin", "whatsapp"]);
-  assert.deepEqual(declaredKeys.map((entry) => entry.label), ["Facebook", "Instagram", "YouTube", "LinkedIn", "WhatsApp"]);
+  assert.deepEqual(declaredKeys.map((entry) => entry.key), ["facebook", "instagram"]);
+  assert.deepEqual(declaredKeys.map((entry) => entry.label), ["Facebook", "Instagram"]);
 });
 
-test("WhatsApp reads whatsapp_url end-to-end from the public footer RPC wire type, not a placeholder", async () => {
+test("YouTube and LinkedIn stay in the wire type (schema/RPC backward compatibility) but are never rendered in the public footer", async () => {
   const publicCms = await readFile(new URL("../src/lib/public-cms.ts", import.meta.url), "utf8");
-  assert.match(publicCms, /whatsapp_url: string \| null;/);
-  assert.match(publicCms, /whatsapp: row\.whatsapp_url/);
+  assert.match(publicCms, /youtube: string \| null; linkedin: string \| null/, "de velden mogen blijven bestaan in het type - alleen niet renderen, niet weggooien");
+  assert.match(publicCms, /youtube_url: string \| null;/);
+  assert.match(publicCms, /linkedin_url: string \| null;/);
+  const shellSource = await readFile(new URL("../src/components/site-shell.tsx", import.meta.url), "utf8");
+  const socialIconsBlock = shellSource.match(/export const SOCIAL_ICONS[\s\S]*?\n};/)?.[0] ?? "";
+  assert.doesNotMatch(socialIconsBlock, /youtube:|linkedin:/, "YouTube/LinkedIn mogen niet in SOCIAL_ICONS staan, dus FooterSocial rendert ze nooit");
+});
+
+test("WhatsApp does not exist anywhere in the public website: no field, no icon, no wire mapping", async () => {
+  const publicCms = await readFile(new URL("../src/lib/public-cms.ts", import.meta.url), "utf8");
+  const shellSource = await readFile(new URL("../src/components/site-shell.tsx", import.meta.url), "utf8");
+  assert.doesNotMatch(publicCms, /whatsapp/i, "Meer Vereniging gebruikt voorlopig uitsluitend Facebook en Instagram - geen whatsapp_url in de wire types");
+  assert.doesNotMatch(shellSource, /whatsapp/i, "geen WhatsApp-icoon of -verwijzing in de footer");
 });
 
 test("social links only ever render for platforms with a configured URL, always with safe target/rel and an aria-label", async () => {
