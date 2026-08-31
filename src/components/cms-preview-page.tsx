@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { CmsPublicPageView } from "@/src/components/cms-public-page";
 import { getCmsPreviewPage } from "@/src/lib/public-cms";
 
@@ -7,6 +8,33 @@ export const cmsPreviewMetadata: Metadata = {
   robots: { index: false, follow: false },
   referrer: "no-referrer",
 };
+
+/**
+ * Websitebeheer's "Veilig voorbeeld" iframe used to trust its own onLoad
+ * event to mean "the preview rendered correctly" - but onLoad fires for a
+ * refused/blocked frame just as much as a real one, and it also fires for a
+ * *successfully rendered* PreviewError (e.g. an expired token still loads a
+ * valid HTML document, just not the real page). Both looked identical from
+ * the parent frame: a false "Preview bijgewerkt" checkmark. This posts an
+ * explicit, origin-scoped status signal the parent can trust instead of
+ * inferring anything from onLoad. Must match proxy.ts's
+ * CMS_PREVIEW_TRUSTED_PARENT_ORIGIN exactly.
+ */
+const MASTER_BEHEER_ORIGIN = "https://beheer.meervereniging.nl";
+
+async function PreviewStatusSignal({ ok, reason }: { ok: boolean; reason: string }) {
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
+  const payload = JSON.stringify({ source: "meer-vereniging-cms-preview", ok, reason });
+  return (
+    <script
+      nonce={nonce}
+      // Static JSON.stringify output only - no user input reaches this string.
+      dangerouslySetInnerHTML={{
+        __html: `try{window.parent.postMessage(${payload},${JSON.stringify(MASTER_BEHEER_ORIGIN)});}catch(e){}`,
+      }}
+    />
+  );
+}
 
 function PreviewError({ kind }: { kind: "missing-token" | "unavailable" | "resolver" }) {
   const copy = {
@@ -30,6 +58,7 @@ function PreviewError({ kind }: { kind: "missing-token" | "unavailable" | "resol
         <h1>{copy.title}</h1>
         <p className="lede">{copy.body}</p>
       </div>
+      <PreviewStatusSignal ok={false} reason={kind} />
     </main>
   );
 }
@@ -51,5 +80,10 @@ export async function CmsPreviewPage({ searchParams }: { searchParams: Promise<{
     return <PreviewError kind="resolver" />;
   }
   if (!page) return <PreviewError kind="unavailable" />;
-  return <CmsPublicPageView page={page} />;
+  return (
+    <>
+      <CmsPublicPageView page={page} />
+      <PreviewStatusSignal ok={true} reason="ok" />
+    </>
+  );
 }

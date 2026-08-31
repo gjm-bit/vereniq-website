@@ -105,10 +105,10 @@ test("/proefabonnement renders (no soft-404) and the Turnstile widget mounts wit
   assert.ok(directives["frame-src"]?.includes("https://challenges.cloudflare.com"));
 });
 
-test("vercel.json keeps X-Frame-Options/X-Content-Type-Options/Referrer-Policy as static platform headers", async () => {
+test("vercel.json keeps X-Frame-Options/X-Content-Type-Options/Referrer-Policy as static platform headers for every route except the CMS preview route", async () => {
   const config = JSON.parse(await readFile(new URL("../vercel.json", import.meta.url), "utf8"));
-  const headerBlock = config.headers?.find((entry) => entry.source === "/(.*)");
-  assert.ok(headerBlock, "vercel.json must still declare a catch-all headers rule");
+  const headerBlock = config.headers?.find((entry) => entry.source === "/((?!cms-preview$|_cms-preview$).*)");
+  assert.ok(headerBlock, "vercel.json must still declare a catch-all headers rule that excludes the CMS preview route");
   const byKey = Object.fromEntries(headerBlock.headers.map((h) => [h.key, h.value]));
   assert.equal(byKey["X-Frame-Options"], "DENY");
   assert.equal(byKey["X-Content-Type-Options"], "nosniff");
@@ -116,6 +116,16 @@ test("vercel.json keeps X-Frame-Options/X-Content-Type-Options/Referrer-Policy a
   // CSP moved to proxy.ts (needs a per-request nonce, which a static vercel.json value can never provide) -
   // vercel.json must NOT also declare it, to avoid two conflicting Content-Security-Policy headers on the same response.
   assert.equal(byKey["Content-Security-Policy"], undefined);
+});
+
+test("vercel.json deliberately omits X-Frame-Options for exactly the CMS preview route (frame-ancestors, scoped to the trusted Websitebeheer origin in proxy.ts, does the job instead)", async () => {
+  const config = JSON.parse(await readFile(new URL("../vercel.json", import.meta.url), "utf8"));
+  const previewBlock = config.headers?.find((entry) => entry.source === "/(cms-preview|_cms-preview)");
+  assert.ok(previewBlock, "vercel.json must declare a headers rule scoped to exactly /cms-preview and /_cms-preview");
+  const byKey = Object.fromEntries(previewBlock.headers.map((h) => [h.key, h.value]));
+  assert.equal(byKey["X-Frame-Options"], undefined, "X-Frame-Options must be absent here - it is an unconditional veto that would block even the trusted Websitebeheer origin");
+  assert.equal(byKey["X-Content-Type-Options"], "nosniff");
+  assert.equal(byKey["Referrer-Policy"], "strict-origin-when-cross-origin");
 });
 
 test("security.txt (RFC 9116) remains published", async () => {

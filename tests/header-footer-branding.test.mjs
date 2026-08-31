@@ -46,13 +46,18 @@ test("footer falls back cleanly to the official Brand when no CMS logo is config
   assert.doesNotMatch(footerHtml, /src=""/, "geen lege/kapotte src");
 });
 
-test("social platform config: exactly Facebook, Instagram, YouTube, LinkedIn in that order — WhatsApp intentionally deferred", async () => {
+test("social platform config: exactly Facebook, Instagram, YouTube, LinkedIn, WhatsApp in that order", async () => {
   const shellSource = await readFile(new URL("../src/components/site-shell.tsx", import.meta.url), "utf8");
   const socialIconsBlock = shellSource.match(/export const SOCIAL_ICONS[\s\S]*?\n};/)?.[0] ?? "";
   const declaredKeys = [...socialIconsBlock.matchAll(/^\s*(\w+):\s*{\s*label:\s*"([^"]+)"/gm)].map(([, key, label]) => ({ key, label }));
-  assert.deepEqual(declaredKeys.map((entry) => entry.key), ["facebook", "instagram", "youtube", "linkedin"]);
-  assert.deepEqual(declaredKeys.map((entry) => entry.label), ["Facebook", "Instagram", "YouTube", "LinkedIn"]);
-  assert.doesNotMatch(shellSource, /whatsapp/i, "WhatsApp is bewust uitgesteld naar een apart, in feestbende-app (master-beheer/foundation) te autoriseren stuk werk — zie EINDRAPPORT");
+  assert.deepEqual(declaredKeys.map((entry) => entry.key), ["facebook", "instagram", "youtube", "linkedin", "whatsapp"]);
+  assert.deepEqual(declaredKeys.map((entry) => entry.label), ["Facebook", "Instagram", "YouTube", "LinkedIn", "WhatsApp"]);
+});
+
+test("WhatsApp reads whatsapp_url end-to-end from the public footer RPC wire type, not a placeholder", async () => {
+  const publicCms = await readFile(new URL("../src/lib/public-cms.ts", import.meta.url), "utf8");
+  assert.match(publicCms, /whatsapp_url: string \| null;/);
+  assert.match(publicCms, /whatsapp: row\.whatsapp_url/);
 });
 
 test("social links only ever render for platforms with a configured URL, always with safe target/rel and an aria-label", async () => {
