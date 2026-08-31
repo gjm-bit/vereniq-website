@@ -111,7 +111,7 @@ export type OrganizationFooterData = Readonly<{
   kvkNumber: string | null;
   btwNumber: string | null;
   logoUrl: string | null;
-  social: Readonly<{ facebook: string | null; instagram: string | null; linkedin: string | null; youtube: string | null }>;
+  social: Readonly<{ facebook: string | null; instagram: string | null; youtube: string | null; linkedin: string | null }>;
 }>;
 
 type OrganizationFooterWire = Readonly<{
@@ -164,7 +164,7 @@ export async function getOrganizationFooterData(): Promise<OrganizationFooterDat
       contactEmail: row.contact_email, contactPhone: row.contact_phone,
       kvkNumber: row.kvk_number, btwNumber: row.btw_number,
       logoUrl,
-      social: { facebook: row.facebook_url, instagram: row.instagram_url, linkedin: row.linkedin_url, youtube: row.youtube_url },
+      social: { facebook: row.facebook_url, instagram: row.instagram_url, youtube: row.youtube_url, linkedin: row.linkedin_url },
     };
   } catch {
     return null;

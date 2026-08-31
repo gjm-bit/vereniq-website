@@ -40,8 +40,27 @@ import type { NextRequest } from "next/server";
  *
  * No 'unsafe-inline', no wildcard, no other directive removed or widened.
  */
+/**
+ * The one, narrow exception to `frame-ancestors 'none'`: Websitebeheer's
+ * "Veilig voorbeeld" (master-beheer/src/app/org/[organizationId]/website/
+ * paginas/[pageId].tsx) embeds this exact route in an <iframe> to show a
+ * live, unpublished draft next to the editor. Root-caused (not guessed):
+ * that iframe always showed a grey/broken pane and a false-positive
+ * "Preview bijgewerkt" checkmark (the onLoad handler fires even for a
+ * frame the browser refused to render) because `frame-ancestors 'none'`
+ * here blocks ALL framing, including Master Beheer's own trusted origin -
+ * X-Frame-Options: DENY (vercel.json, scoped away from this path below)
+ * would have blocked it a second time even if this were relaxed. Scoped
+ * to the exact production origin, never a wildcard or parent-domain
+ * pattern - no other page on this site becomes frameable, and no other
+ * origin can frame this one either.
+ */
+const CMS_PREVIEW_PATHS = new Set(["/cms-preview", "/_cms-preview"]);
+const CMS_PREVIEW_TRUSTED_PARENT_ORIGIN = "https://beheer.meervereniging.nl";
+
 export function proxy(request: NextRequest) {
   const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
+  const isCmsPreviewRoute = CMS_PREVIEW_PATHS.has(request.nextUrl.pathname);
 
   const supabaseOrigin = (() => {
     const raw = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -61,7 +80,7 @@ export function proxy(request: NextRequest) {
     `font-src 'self'`,
     `connect-src 'self'${supabaseOrigin ? ` ${supabaseOrigin}` : ""}`,
     `frame-src https://challenges.cloudflare.com`,
-    `frame-ancestors 'none'`,
+    isCmsPreviewRoute ? `frame-ancestors ${CMS_PREVIEW_TRUSTED_PARENT_ORIGIN}` : `frame-ancestors 'none'`,
     `base-uri 'self'`,
     `form-action 'self'`,
   ];
