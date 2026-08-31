@@ -1,0 +1,32 @@
+/* Officieel Meer Vereniging-logo (M-symbool, ongewijzigd) + echte HTML-wordmark/tagline,
+   direct op de navy/violet oppervlakken van header en footer. Eén Brand-component
+   (src/components/site-shell.tsx) voor beide, zodat het logo nooit uiteenloopt. */
+.brand { display: inline-flex; align-items: center; gap: 12px; }
+.brand-icon { display: block; height: 44px; width: auto; aspect-ratio: 279 / 215; object-fit: contain; flex: none; }
+.brand-text { display: flex; flex-direction: column; gap: 2px; line-height: 1.15; }
+.brand-word { color: var(--brand-white); font-size: 1.05rem; font-weight: 800; letter-spacing: -.01em; text-transform: uppercase; white-space: nowrap; }
+.brand-tagline { color: var(--brand-on-dark-muted); font-size: .72rem; font-weight: 600; white-space: nowrap; }
+.footer .brand-icon { height: 52px; }
+.footer .brand-word { font-size: 1.15rem; }
+
+.footer-social { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 16px; }
+.footer-social a { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border: 1px solid rgb(255 255 255 / 16%); border-radius: 50%; background: rgb(255 255 255 / 6%); color: var(--brand-on-dark-muted); transition: background-color .18s ease, border-color .18s ease, color .18s ease; }
+.footer-social a:hover, .footer-social a:focus-visible { border-color: rgb(255 255 255 / 32%); background: rgb(255 255 255 / 14%); color: var(--brand-white); }
+
+.footer-bottom { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px; margin-top: 48px; padding-top: 24px; border-top: 1px solid rgb(255 255 255 / 12%); color: var(--brand-on-dark-muted); font-size: .82rem; }
+.footer-bottom nav { display: flex; flex-wrap: wrap; gap: 18px; }
+.footer-bottom a { color: var(--brand-on-dark-muted); }
+.footer-bottom a:hover, .footer-bottom a:focus-visible { color: var(--brand-white); text-decoration: underline; text-underline-offset: 4px; }
+
+@media (max-width: 800px) {
+  .brand-icon { height: 36px; }
+  .brand-word { font-size: .95rem; }
+  .brand-tagline { font-size: .68rem; }
+  .footer .brand-icon { height: 40px; }
+  .footer .brand-word { font-size: 1rem; }
+  .footer-bottom { flex-direction: column; align-items: flex-start; }
+}
+
+@media (max-width: 430px) {
+  .brand-tagline { display: none; }
+}
