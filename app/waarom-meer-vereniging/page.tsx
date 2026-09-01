@@ -1,14 +1,15 @@
-import type { Metadata } from "next";
 import type { ReactElement } from "react";
 import { SiteLink as Link } from "@/src/components/site-link";
 import { PublicShell } from "@/src/components/site-shell";
 import { WaaromFaq, type FaqGroup } from "@/src/components/waarom-faq";
+import { pageMetadata } from "@/src/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata = pageMetadata({
   title: "Waarom Meer Vereniging?",
   description:
     "Gebouwd voor verenigingen, met de zorgvuldigheid van professionele bedrijfssoftware. Ontdek hoe Meer Vereniging omgaat met veiligheid, privacy en releasekwaliteit.",
-};
+  path: "/waarom-meer-vereniging",
+});
 
 /**
  * Simpele, consistente lijn-iconen (2px stroke, currentColor) in dezelfde
@@ -122,12 +123,12 @@ const FAQ_GROUPS: readonly FaqGroup[] = [
       {
         question: "Welke onderdelen zijn er?",
         answer:
-          "De basis is bewust simpel. Daarnaast zijn er losse onderdelen die je alleen gebruikt als je vereniging ze nodig heeft. Een actueel overzicht staat op de modulepagina.",
+          "De basis is bewust simpel. Daarnaast zijn er onder andere: Agenda, Ledenadministratie, Projecten, Repertoire, Voorraad, Drankhaler, Polls, Prikbord en een Communicatiecentrum. Je gebruikt alleen wat jouw vereniging nodig heeft. Op de modulepagina lees je per onderdeel meer.",
       },
       {
         question: "Wat kost Meer Vereniging?",
         answer:
-          "De actuele prijzen staan op onze prijzenpagina. Nieuwe verenigingen kunnen 90 dagen gratis proberen, zonder creditcard.",
+          "Onze definitieve prijsstelling wordt op dit moment afgerond en verschijnt binnenkort op de prijzenpagina. Tot die tijd kun je 90 dagen gratis proberen, zonder creditcard.",
       },
       {
         question: "Moet ik iets installeren?",
@@ -178,7 +179,8 @@ const FAQ_GROUPS: readonly FaqGroup[] = [
     items: [
       {
         question: "Hoe stap ik over vanuit ons huidige systeem?",
-        answer: "We denken graag met je mee. Neem contact op via info@meervereniging.nl, dan bespreken we samen wat voor jullie het beste werkt.",
+        answer:
+          "Je bestaande ledengegevens kun je importeren, zodat je niet alles opnieuw hoeft in te typen. Loop je tegen iets aan, mail dan naar info@meervereniging.nl, dan denken we met je mee.",
       },
       {
         question: "Blijven onze gegevens van onze vereniging?",
@@ -186,11 +188,13 @@ const FAQ_GROUPS: readonly FaqGroup[] = [
       },
       {
         question: "Kunnen we onze gegevens meenemen als we stoppen?",
-        answer: "Neem in dat geval contact met ons op. Dan kijken we samen wat mogelijk is voor jullie situatie.",
+        answer:
+          "Ja. Belangrijke gegevens kun je exporteren, zodat je vereniging niet vastzit aan Meer Vereniging. Neem voor de precieze mogelijkheden contact op via info@meervereniging.nl.",
       },
       {
         question: "Wat gebeurt er met onze gegevens als we opzeggen?",
-        answer: "Dat bespreken we persoonlijk op het moment van opzeggen, zodat het past bij wat jullie willen. Neem contact op via info@meervereniging.nl.",
+        answer:
+          "We werken netjes mee aan de overdracht van jullie gegevens. Persoonsgegevens verwijderen we volgens de AVG en de afspraken die we maken, met inachtneming van eventuele wettelijke bewaarplichten. Neem contact op via info@meervereniging.nl om dit samen te regelen.",
       },
       {
         question: "Hoe zeg ik op?",
@@ -229,7 +233,8 @@ const FAQ_GROUPS: readonly FaqGroup[] = [
       },
       {
         question: "Hoe vaak brengen jullie updates uit, en merk ik daar iets van?",
-        answer: "Updates doorlopen ons vaste proces (hierboven op deze pagina uitgelegd) voordat ze live gaan. Meestal merk je daar niets van, behalve dat er af en toe iets is verbeterd.",
+        answer:
+          "Updates doorlopen ons vaste proces (hierboven op deze pagina uitgelegd) voordat ze live gaan. Merk je iets, dan zie je dat via een pushmelding en in \"Wat is nieuw\" in de app. Een grotere, nieuwe module kondigen we vooraf aan per e-mail.",
       },
       {
         question: "Is Meer Vereniging altijd bereikbaar?",
@@ -241,7 +246,8 @@ const FAQ_GROUPS: readonly FaqGroup[] = [
       },
       {
         question: "Wat is die Internet.nl-score die jullie noemen?",
-        answer: "Internet.nl is een onafhankelijke test die controleert of een website moderne en veilige internetstandaarden gebruikt. Hierboven op deze pagina laten we onze actuele score zien.",
+        answer:
+          "Onze website scoort momenteel 86% bij Internet.nl, een onafhankelijke test die controleert of een website moderne en veilige internetstandaarden gebruikt. Alleen IPv6 ontbreekt nog, dat wordt op dit moment nog niet ondersteund door onze hostingomgeving. Zodra dat verandert, pakken we ook dit laatste onderdeel aan.",
       },
     ],
   },
@@ -348,8 +354,8 @@ export default function WaaromMeerVerenigingPage() {
               <span className="wmv-icon">
                 <IconGlobe />
               </span>
-              <h3>Een moderne verbinding</h3>
-              <p className="muted">Onze website is bereikbaar via de nieuwste internetstandaarden en gebruikt een domeinnaam die niet zomaar te vervalsen is.</p>
+              <h3>Een betrouwbare verbinding</h3>
+              <p className="muted">Onze website gebruikt een domeinnaam die niet zomaar te vervalsen is en is goed ondertekend (DNSSEC).</p>
             </article>
             <article className="card">
               <span className="wmv-icon">
@@ -382,7 +388,9 @@ export default function WaaromMeerVerenigingPage() {
               <div className="wmv-stat-bar-fill" />
             </div>
             <p className="muted" style={{ marginTop: 16, marginBottom: 0 }}>
-              We zijn er nog niet. Zodra we 100% halen, laten we dat hier zien met het officiële keurmerk.
+              Onze website scoort momenteel 86% bij Internet.nl. Alleen IPv6 ontbreekt nog. Dit wordt op dit moment
+              nog niet ondersteund door onze hostingomgeving. Zodra dat verandert, pakken we ook dit laatste
+              onderdeel aan. Is dat zover, dan laten we dat hier zien met het officiële keurmerk.
             </p>
           </div>
         </div>

@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { getOrganizationFooterData, getWebsiteSocialLinks } from "@/src/lib/public-cms";
+import { absoluteUrl } from "@/src/lib/seo";
 import "./globals.css";
 import "./dark-brand-canvas.css";
 import "./dark-premium-v2.css";
@@ -29,12 +31,28 @@ export const metadata: Metadata = {
   // icoon, met een veilige fallback naar exact deze huidige standaard-
   // afbeelding zolang er geen eigen icoon is ingesteld.
   icons: { icon: "/site-icon", shortcut: "/site-icon" },
+  openGraph: { siteName: "Meer Vereniging", type: "website", locale: "nl_NL" },
+  twitter: { card: "summary_large_image" },
 };
 
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+/**
+ * sameAs komt uit dezelfde, al bestaande, CMS-gestuurde socialkanalenbron als
+ * de footer (getWebsiteSocialLinks / getOrganizationFooterData.social) - geen
+ * verzonnen profielen, en automatisch in sync met wat er echt is ingesteld.
+ */
+async function organizationSameAs(): Promise<string[]> {
+  const genericLinks = await getWebsiteSocialLinks();
+  if (genericLinks !== null) return genericLinks.map((link) => link.url);
+  const footer = await getOrganizationFooterData();
+  if (!footer) return [];
+  return Object.values(footer.social).filter((url): url is string => Boolean(url));
+}
+
+export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const url = process.env.NEXT_PUBLIC_SITE_URL || "https://meervereniging.nl";
+  const sameAs = await organizationSameAs();
   const structuredData = { "@context": "https://schema.org", "@graph": [
-    { "@type": "Organization", name: "Meer Vereniging", url, description: "Verenigingssoftware voor leden, agenda, communicatie en beheer." },
+    { "@type": "Organization", name: "Meer Vereniging", url, logo: absoluteUrl("/brand/meer-vereniging-brand-lockup.png"), description: "Verenigingssoftware voor leden, agenda, communicatie en beheer.", ...(sameAs.length > 0 ? { sameAs } : {}) },
     { "@type": "WebSite", name: "Meer Vereniging", url },
     { "@type": "SoftwareApplication", name: "Meer Vereniging", applicationCategory: "BusinessApplication", operatingSystem: "Web", description: "Eén compleet platform voor verenigingen met leden, teams, vrijwilligers en commissies." },
   ] };
