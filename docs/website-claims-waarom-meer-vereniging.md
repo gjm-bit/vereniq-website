@@ -74,6 +74,16 @@ Statussen:
 | AI-gebruik en persoonsgegevens | NOG VERIFIËREN | Geen AI-verwerking van persoonsgegevens dit sessie vastgesteld of uitgesloten. | Conservatief: FAQ zegt dat er momenteel geen persoonsgegevens aan externe AI-diensten worden blootgesteld voor kernfunctionaliteit, zonder een absolute garantie voor de toekomst te geven — geen concreet productkenmerk verzinnen. |
 | Eigendom van gegevens ("uw gegevens blijven van u") | VEILIG GEFORMULEERD | Algemeen, niet-kwantificeerbare uitspraak; geen specifieke juridische garantie. | JA, in algemene bewoordingen. |
 
+## Update na inhoudelijke revisie
+
+Op expliciet verzoek toont de pagina nu wél het daadwerkelijke, actuele
+percentage naast het doel ("86% — huidige score" / "100% — ons doel"),
+in plaats van uitsluitend "doel: 100%" zonder cijfer. Status: **BEWEZEN**
+— hetzelfde, gedateerde internet.nl-rapport als eerder in dit document
+(permalink hierboven), duidelijk gelabeld als huidige stand, nooit als
+al-behaalde 100%. Mag publiceren: JA, zolang beide getallen naast elkaar
+staan en er nergens gesuggereerd wordt dat 100% al is behaald.
+
 ## Samenvatting: wat NIET gepubliceerd wordt in deze ronde
 
 - Elke vorm van "ISO-gecertificeerd" / "ISO 27001 compliant"
