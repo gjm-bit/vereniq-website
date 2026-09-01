@@ -1,0 +1,126 @@
+/* Scoped styles for /waarom-meer-vereniging. Reuses existing design tokens
+   (--brand-*, --mv-radius, --mv-shadow) - no new design system, only new
+   layout for the FAQ tabs/cards and small decorative icons that the
+   existing sitewide CSS doesn't already have a pattern for. */
+
+.wmv-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--brand-purple-soft);
+  color: var(--brand-purple);
+  margin-bottom: 14px;
+}
+.wmv-icon svg { width: 22px; height: 22px; }
+
+.wmv-stat-row {
+  display: flex;
+  gap: 32px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  margin-top: 20px;
+}
+.wmv-stat { min-width: 140px; }
+.wmv-stat-value { font-size: 2.6rem; font-weight: 800; letter-spacing: -0.03em; line-height: 1; }
+.wmv-stat-value.wmv-stat-current { color: var(--brand-purple); }
+.wmv-stat-value.wmv-stat-goal { color: var(--brand-text-muted); }
+.wmv-stat-label { margin-top: 6px; font-size: 0.85rem; color: var(--brand-text-muted); }
+.wmv-stat-bar {
+  position: relative;
+  width: 100%;
+  max-width: 360px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--brand-purple-soft);
+  margin-top: 18px;
+  overflow: hidden;
+}
+.wmv-stat-bar-fill {
+  position: absolute;
+  inset: 0;
+  width: 86%;
+  border-radius: 999px;
+  background: var(--brand-gradient);
+}
+
+.wmv-faq-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 28px 0 24px;
+}
+.wmv-faq-tab {
+  min-height: 40px;
+  padding: 0 16px;
+  border: 1px solid rgb(255 255 255 / 20%);
+  border-radius: 999px;
+  background: transparent;
+  color: rgb(255 255 255 / 70%);
+  font-size: 0.88rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+.wmv-faq-tab:hover { border-color: var(--brand-purple); color: #fff; }
+.wmv-faq-tab-active {
+  border-color: transparent;
+  background: var(--brand-gradient);
+  color: #fff;
+}
+
+/*
+ * Bewust GEEN var(--brand-white)/var(--brand-navy) hier: meerdere van de 20
+ * in app/layout.tsx geimporteerde stylesheets herdefiniëren :root met
+ * tegenstrijdige waarden voor die tokens (zie
+ * docs/known-issue-section-mist-contrast.md), waardoor "witte kaart, donkere
+ * tekst" op deze pagina soms als "lichte kaart, lichte tekst" resolveert -
+ * onleesbaar. Vaste, zelfstandige kleuren voorkomen dat hier opnieuw.
+ */
+.wmv-faq-list { display: grid; gap: 10px; }
+.wmv-faq-item {
+  border: 1px solid rgb(255 255 255 / 14%);
+  border-radius: var(--mv-radius);
+  background: rgb(255 255 255 / 5%);
+  padding: 4px 18px;
+  color: rgb(255 255 255 / 92%);
+}
+.wmv-faq-item summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 52px;
+  cursor: pointer;
+  list-style: none;
+  font-weight: 650;
+  color: #fff;
+}
+.wmv-faq-item summary::-webkit-details-marker { display: none; }
+.wmv-faq-chevron { flex-shrink: 0; transition: transform 0.15s ease; color: var(--brand-purple); }
+.wmv-faq-item[open] .wmv-faq-chevron { transform: rotate(180deg); }
+.wmv-faq-item p { margin: 0 0 16px; color: rgb(255 255 255 / 78%); line-height: 1.6; }
+
+@media (max-width: 800px) {
+  .wmv-stat-row { gap: 24px; }
+  .wmv-stat-value { font-size: 2.1rem; }
+}
+
+/*
+ * .steps (globals.css) is hardcoded to repeat(3,1fr) - gebouwd voor de
+ * 3-staps-usage elders (bv. /platform). Deze pagina heeft 4 releasestappen,
+ * dus zonder override valt de 4e stap terug naar een nieuwe rij (3+1).
+ * Bewust géén wijziging aan het gedeelde .steps zelf (raakt andere paginas);
+ * in plaats daarvan een scoped override, alleen actief op deze pagina, die
+ * het bestaande 800px-breakpoint van .steps volgt en het bestaande 1050px-
+ * breakpoint (al elders in de codebase gebruikt) hergebruikt voor de
+ * 2x2-tablettussenstand.
+ */
+.wmv-steps-4 { grid-template-columns: repeat(4, 1fr); }
+@media (max-width: 1050px) {
+  .wmv-steps-4 { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 800px) {
+  .wmv-steps-4 { grid-template-columns: 1fr; }
+}
