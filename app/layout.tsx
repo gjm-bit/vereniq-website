@@ -23,7 +23,11 @@ export const metadata: Metadata = {
   title: { default: "Meer Vereniging — Minder regelen. Meer verenigen.", template: "%s | Meer Vereniging" },
   description: "Het complete platform voor verenigingen die minder willen regelen en meer willen verenigen.",
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://meervereniging.nl"),
-  icons: { icon: "/brand/meer-vereniging-brand-lockup.png", shortcut: "/brand/meer-vereniging-brand-lockup.png" },
+  // /site-icon is een dynamische Route Handler (app/site-icon/route.ts) die
+  // doorverwijst naar het in Website → Instellingen ingestelde website-
+  // icoon, met een veilige fallback naar exact deze huidige standaard-
+  // afbeelding zolang er geen eigen icoon is ingesteld.
+  icons: { icon: "/site-icon", shortcut: "/site-icon" },
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

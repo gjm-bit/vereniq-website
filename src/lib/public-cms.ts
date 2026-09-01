@@ -111,6 +111,10 @@ export type OrganizationFooterData = Readonly<{
   kvkNumber: string | null;
   btwNumber: string | null;
   logoUrl: string | null;
+  /** Headertekst onder de organisatienaam (bijv. een slogan) - null = geen eigen tekst ingesteld, aanroeper valt terug op de bestaande hardcoded tekst. */
+  slogan: string | null;
+  /** Korte publieke omschrijving, getoond in de footer - null = geen eigen tekst ingesteld, aanroeper valt terug op de bestaande hardcoded tekst. */
+  publicDescription: string | null;
   social: Readonly<{ facebook: string | null; instagram: string | null; youtube: string | null; linkedin: string | null }>;
 }>;
 
@@ -120,12 +124,12 @@ type OrganizationFooterWire = Readonly<{
   postal_code: string | null; city: string | null;
   contact_email: string | null; contact_phone: string | null;
   kvk_number: string | null; btw_number: string | null;
-  logo_path: string | null;
+  logo_path: string | null; favicon_path: string | null; slogan: string | null; public_description: string | null;
   facebook_url: string | null; instagram_url: string | null; linkedin_url: string | null; youtube_url: string | null;
 }>;
 
-/** Alleen het logo staat achter een nauw geschraapt anon-leesbeleid (organization_branding_read_public_logo) - vraagt hier telkens een verse signed URL op, geen publieke bucket. */
-async function getPublicLogoUrl(path: string): Promise<string | null> {
+/** Logo/favicon staan achter een nauw geschraapt anon-leesbeleid (organization_branding_read_public_assets) - vraagt hier telkens een verse signed URL op, geen publieke bucket. Werkt voor elk pad in die bucket, niet alleen logo's - vandaar de generieke naam. */
+async function getSignedOrganizationBrandingAssetUrl(path: string): Promise<string | null> {
   const config = getPublicConfig();
   if (!config) return null;
   try {
@@ -146,8 +150,10 @@ async function getPublicLogoUrl(path: string): Promise<string | null> {
 /**
  * Footer-/organisatiegegevens zijn direct-live (geen draft/publish-laag,
  * zie website_public_organization_footer). Faalt nooit hard: als de RPC of
- * de logo-signing tijdelijk niet lukt, valt de footer terug op de bestaande
- * hardcoded merkweergave in plaats van élke pagina te breken.
+ * de asset-signing tijdelijk niet lukt, valt de aanroeper terug op de
+ * bestaande hardcoded merkweergave in plaats van élke pagina te breken.
+ * Zowel Header() als Footer() gebruiken deze ene functie - één gedeelde
+ * bron voor organisatienaam/logo/slogan/omschrijving, geen dubbele opslag.
  */
 export async function getOrganizationFooterData(): Promise<OrganizationFooterData | null> {
   try {
@@ -156,7 +162,7 @@ export async function getOrganizationFooterData(): Promise<OrganizationFooterDat
     });
     const row = rows?.[0];
     if (!row) return null;
-    const logoUrl = row.logo_path ? await getPublicLogoUrl(row.logo_path) : null;
+    const logoUrl = row.logo_path ? await getSignedOrganizationBrandingAssetUrl(row.logo_path) : null;
     return {
       organizationName: row.organization_name,
       street: row.street, houseNumber: row.house_number, houseNumberAddition: row.house_number_addition,
@@ -164,8 +170,128 @@ export async function getOrganizationFooterData(): Promise<OrganizationFooterDat
       contactEmail: row.contact_email, contactPhone: row.contact_phone,
       kvkNumber: row.kvk_number, btwNumber: row.btw_number,
       logoUrl,
+      slogan: row.slogan && row.slogan.trim() ? row.slogan : null,
+      publicDescription: row.public_description && row.public_description.trim() ? row.public_description : null,
       social: { facebook: row.facebook_url, instagram: row.instagram_url, youtube: row.youtube_url, linkedin: row.linkedin_url },
     };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Publieke favicon-URL voor de dynamische icoonroute (app/icon/route.ts).
+ * Aparte, lichte aanroep i.p.v. de volledige footerdata: de icoonroute
+ * heeft alleen favicon_path nodig, niet adres/contact/social. Faalt nooit
+ * hard - null betekent "geen eigen icoon (of RPC nog niet beschikbaar),
+ * val terug op het bestaande statische standaardicoon".
+ */
+export async function getWebsiteFaviconUrl(): Promise<string | null> {
+  try {
+    const rows = await callPublicRpc<readonly Pick<OrganizationFooterWire, "favicon_path">[]>("website_public_organization_footer", {
+      org_slug: CMS_ORGANIZATION_SLUG,
+    });
+    const path = rows?.[0]?.favicon_path;
+    if (!path) return null;
+    return await getSignedOrganizationBrandingAssetUrl(path);
+  } catch {
+    return null;
+  }
+}
+
+export type WebsiteSocialLink = Readonly<{
+  platformKey: string;
+  label: string;
+  url: string;
+  iconUrl: string | null;
+  sortOrder: number;
+}>;
+
+type WebsiteSocialLinkWire = Readonly<{
+  platform_key: string; label: string; url: string; icon_path: string | null; sort_order: number;
+}>;
+
+/** website-social-icons is een publieke bucket (geen signed URL nodig, in tegenstelling tot het logo hierboven - een platformicoontje is per definitie bedoeld om publiek zichtbaar te zijn). */
+function websiteSocialIconPublicUrl(iconPath: string): string | null {
+  const config = getPublicConfig();
+  if (!config) return null;
+  return `${config.url}/storage/v1/object/public/website-social-icons/${iconPath}`;
+}
+
+/**
+ * Generiek socialmediakanalen-model (website_social_links /
+ * website_public_social_links, migratie 20260901030000 - lokaal
+ * voorbereid, nog niet remote toegepast). Geeft `null` terug zolang de RPC
+ * niet bestaat (of om elke andere reden faalt) - dezelfde
+ * "faalt nooit hard"-conventie als hierboven. De aanroeper behandelt `null`
+ * expliciet anders dan een lege array: `null` betekent "nieuw model nog
+ * niet beschikbaar, val terug op getOrganizationFooterData().social"; een
+ * lege array betekent "wél beschikbaar, deze organisatie heeft simpelweg
+ * (nog) geen zichtbare kanalen" en moet dus ook niets tonen, niet
+ * terugvallen. Zelfde reden waarom dit geen aparte deploy vereist zodra de
+ * migratie wél wordt toegepast: dezelfde, ongewijzigde code schakelt dan
+ * vanzelf over.
+ */
+export async function getWebsiteSocialLinks(): Promise<readonly WebsiteSocialLink[] | null> {
+  try {
+    const rows = await callPublicRpc<readonly WebsiteSocialLinkWire[]>("website_public_social_links", {
+      org_slug: CMS_ORGANIZATION_SLUG,
+    });
+    if (!rows) return null;
+    return [...rows]
+      .sort((a, b) => a.sort_order - b.sort_order)
+      .map((row) => ({
+        platformKey: row.platform_key,
+        label: row.label,
+        url: row.url,
+        iconUrl: row.icon_path ? websiteSocialIconPublicUrl(row.icon_path) : null,
+        sortOrder: row.sort_order,
+      }));
+  } catch {
+    return null;
+  }
+}
+
+export type WebsiteHeaderActionVariant = "primary" | "secondary";
+
+export type WebsiteHeaderAction = Readonly<{
+  actionKey: string;
+  label: string;
+  url: string;
+  variant: WebsiteHeaderActionVariant;
+  sortOrder: number;
+}>;
+
+type WebsiteHeaderActionWire = Readonly<{
+  action_key: string; label: string; url: string; variant: string; sort_order: number;
+}>;
+
+/**
+ * Generiek header-acties-model (website_header_actions /
+ * website_public_header_actions, migratie 20260901030000 - beheerbaar via
+ * Website → Instellingen). Vervangt de voorheen hardcoded "Inloggen"/
+ * "Probeer gratis"-knoppen. Zelfde "faalt nooit hard, null = val terug op
+ * de hardcoded knoppen, lege array = wél beschikbaar maar bewust niets
+ * zichtbaars"-conventie als getWebsiteSocialLinks hierboven - de aanroeper
+ * (site-shell.tsx) gebruikt dezelfde resolved-actions-lijst voor zowel de
+ * desktop-header als het mobiele menu, zodat beide altijd consistent zijn
+ * met wat de beheerder heeft ingesteld.
+ */
+export async function getWebsitePublicHeaderActions(): Promise<readonly WebsiteHeaderAction[] | null> {
+  try {
+    const rows = await callPublicRpc<readonly WebsiteHeaderActionWire[]>("website_public_header_actions", {
+      org_slug: CMS_ORGANIZATION_SLUG,
+    });
+    if (!rows) return null;
+    return [...rows]
+      .sort((a, b) => a.sort_order - b.sort_order)
+      .map((row) => ({
+        actionKey: row.action_key,
+        label: row.label,
+        url: row.url,
+        variant: row.variant === "primary" ? "primary" : "secondary",
+        sortOrder: row.sort_order,
+      }));
   } catch {
     return null;
   }

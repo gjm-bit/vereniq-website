@@ -114,11 +114,37 @@ test("veilige cache/fallback: een mislukte RPC-aanroep geeft null/lege lijst ter
   assert.match(formSource, /const heroLabel = initialTrialDays \? `Probeer \$\{initialTrialDays\} dagen gratis` : "Probeer gratis";/, "zonder bekende proefduur toont de pagina een werkende, dagen-neutrale CTA i.p.v. te breken");
 });
 
-test("de homepage-CTA's ('Probeer gratis') wijzen naar /proefabonnement, niet meer naar /demo", async () => {
+// Bijgewerkt 2026-09-01: de header-knoppen ("Inloggen"/"Probeer gratis")
+// zijn niet langer letterlijke, hardcoded JSX - ze komen nu uit het
+// generieke header-acties-model (website_header_actions, beheerbaar via
+// Website → Instellingen → Header), met FALLBACK_HEADER_ACTIONS als
+// terugvalwaarde zolang die RPC (nog) niet beschikbaar is. De oude
+// letterlijke-JSX-check test daarmee een vorm die niet meer bestaat, ook al
+// is het zichtbare gedrag (label/URL/primary-styling) ongewijzigd. Het
+// nieuwe contract: "Probeer gratis" komt uit die databron (of de
+// gelijkwaardige terugvalwaarde), heeft de juiste primary-variant, en
+// desktop/mobiel gebruiken dezelfde bron.
+test("'Probeer gratis' komt uit de generieke header-acties-bron (met correcte terugval), behoudt de primary-variant en wijst naar /proefabonnement, niet naar /demo", async () => {
   const header = await read("src/components/site-shell.tsx");
   const mobileMenu = await read("src/components/mobile-menu.tsx");
-  assert.match(header, /<Link className="btn btn-primary" href="\/proefabonnement">Probeer gratis<\/Link>/);
-  assert.match(mobileMenu, /<Link href="\/proefabonnement" onClick=\{\(\)=>setOpen\(false\)\}>Probeer gratis<\/Link>/);
+
+  // Terugvalwaarde (RPC nog niet beschikbaar) - exact dezelfde inhoud als
+  // het oude, letterlijke knop-JSX vroeger vastlegde.
+  assert.match(header, /\{ actionKey: "trial-cta", label: "Probeer gratis", url: "\/proefabonnement", variant: "primary", sortOrder: 1 \}/);
+
+  // De render-functie zet elke actie met een relatieve URL ("/...") om
+  // naar een Next.js <Link>, met de juiste class per variant - "primary"
+  // wordt bewust dezelfde "btn btn-primary"-class als voorheen.
+  assert.match(header, /action\.url\.startsWith\("\/"\)\s*\n\s*\? <Link className=\{className\} href=\{action\.url\}>\{action\.label\}<\/Link>/);
+  assert.match(header, /className=\{action\.variant==="primary"\?"btn btn-primary":"btn btn-secondary"\}/);
+
+  // Desktop (Header) en mobiel (MobileMenu) gebruiken dezelfde, één keer
+  // opgehaalde actions-lijst - geen aparte/dubbele knoppendefinitie in het
+  // mobiele menu.
+  assert.match(header, /<MobileMenu actions=\{actions\}\/>/);
+  assert.match(mobileMenu, /actions: readonly WebsiteHeaderAction\[\]/);
+  assert.doesNotMatch(mobileMenu, /"Probeer gratis"|"\/proefabonnement"/, "het mobiele menu mag 'Probeer gratis' niet nogmaals hardcoderen - het rendert uit dezelfde gedeelde actions-prop");
+
   // De aparte "Vraag een demo aan"-route (andere intentie: begeleide demo) blijft ongewijzigd bestaan.
   assert.match(await read("app/platform/page.tsx"), /href="\/demo">Vraag een demo aan<\/Link>/);
 });

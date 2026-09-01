@@ -64,11 +64,29 @@ test("YouTube and LinkedIn stay in the wire type (schema/RPC backward compatibil
   assert.doesNotMatch(socialIconsBlock, /youtube:|linkedin:/, "YouTube/LinkedIn mogen niet in SOCIAL_ICONS staan, dus FooterSocial rendert ze nooit");
 });
 
-test("WhatsApp does not exist anywhere in the public website: no field, no icon, no wire mapping", async () => {
-  const publicCms = await readFile(new URL("../src/lib/public-cms.ts", import.meta.url), "utf8");
+// Bijgewerkt 2026-09-01: WhatsApp was uitgesloten toen de footer nog een
+// vaste Facebook/Instagram-implementatie was (organization_social_settings,
+// vóór het generieke socialmediakanalen-model). Sindsdien is dat model
+// vervangen door website_social_links - een generiek kanalenmodel waarin
+// een beheerder zelf kiest welke platformen (inclusief WhatsApp) getoond
+// worden. Het oude verbod "WhatsApp mag nergens voorkomen" is daarmee geen
+// geldig productcontract meer; het nieuwe contract is: WhatsApp mag als
+// standaardicoon-preset bestaan, maar verschijnt alleen wanneer een
+// beheerder het kanaal expliciet toevoegt én op "Tonen op website" zet -
+// nooit ongevraagd of hardcoded.
+test("WhatsApp is een generiek, door de beheerder configureerbaar kanaal - nooit hardcoded/ongeconfigureerde output", async () => {
   const shellSource = await readFile(new URL("../src/components/site-shell.tsx", import.meta.url), "utf8");
-  assert.doesNotMatch(publicCms, /whatsapp/i, "Meer Vereniging gebruikt voorlopig uitsluitend Facebook en Instagram - geen whatsapp_url in de wire types");
-  assert.doesNotMatch(shellSource, /whatsapp/i, "geen WhatsApp-icoon of -verwijzing in de footer");
+  // Beschikbaar als bekend standaardicoon in het generieke model, zodat de
+  // publieke website een eigen icoon van de beheerder niet nodig heeft.
+  assert.match(shellSource, /whatsapp: "M12 3a9 9 0 0 0-7\.8 13\.5L3 21l4\.6-1\.2A9 9 0 1 0 12 3zm/, "WhatsApp moet als bekend platform-icoon beschikbaar zijn in het generieke model (PLATFORM_DEFAULT_ICONS)");
+  // De legacy Facebook/Instagram-terugvalkaart (alleen actief zolang de
+  // nieuwe migratie niet beschikbaar is) kent geen platformkeuze en mag
+  // WhatsApp dus nooit hardcoderen.
+  const socialIconsBlock = shellSource.match(/export const SOCIAL_ICONS[\s\S]*?\n};/)?.[0] ?? "";
+  assert.doesNotMatch(socialIconsBlock, /whatsapp/i, "de legacy Facebook/Instagram-terugvalkaart mag WhatsApp nooit hardcoderen");
+  // Geen speciale/hardcoded WhatsApp-uitzondering buiten het generieke,
+  // server-side is_visible-gefilterde datamodel om.
+  assert.doesNotMatch(shellSource, /platformKey\s*===\s*["']whatsapp["']/, "geen client-side whatsapp-specifieke uitzondering - zichtbaarheid loopt uitsluitend via het generieke, server-side gefilterde model");
 });
 
 test("social links only ever render for platforms with a configured URL, always with safe target/rel and an aria-label", async () => {
