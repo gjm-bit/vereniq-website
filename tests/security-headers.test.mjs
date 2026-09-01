@@ -112,7 +112,7 @@ test("vercel.json keeps X-Frame-Options/X-Content-Type-Options/Referrer-Policy a
   const byKey = Object.fromEntries(headerBlock.headers.map((h) => [h.key, h.value]));
   assert.equal(byKey["X-Frame-Options"], "DENY");
   assert.equal(byKey["X-Content-Type-Options"], "nosniff");
-  assert.equal(byKey["Referrer-Policy"], "strict-origin-when-cross-origin");
+  assert.equal(byKey["Referrer-Policy"], "no-referrer");
   // CSP moved to proxy.ts (needs a per-request nonce, which a static vercel.json value can never provide) -
   // vercel.json must NOT also declare it, to avoid two conflicting Content-Security-Policy headers on the same response.
   assert.equal(byKey["Content-Security-Policy"], undefined);
@@ -125,7 +125,7 @@ test("vercel.json deliberately omits X-Frame-Options for exactly the CMS preview
   const byKey = Object.fromEntries(previewBlock.headers.map((h) => [h.key, h.value]));
   assert.equal(byKey["X-Frame-Options"], undefined, "X-Frame-Options must be absent here - it is an unconditional veto that would block even the trusted Websitebeheer origin");
   assert.equal(byKey["X-Content-Type-Options"], "nosniff");
-  assert.equal(byKey["Referrer-Policy"], "strict-origin-when-cross-origin");
+  assert.equal(byKey["Referrer-Policy"], "no-referrer");
 });
 
 test("security.txt (RFC 9116) remains published", async () => {
