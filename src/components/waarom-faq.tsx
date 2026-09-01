@@ -37,20 +37,28 @@ export function WaaromFaq({ groups }: { groups: readonly FaqGroup[] }) {
         ))}
       </div>
       <div className="wmv-faq-list" role="tabpanel">
-        {activeGroup.items.map((item) => (
-          <details
-            key={item.question}
-            className="wmv-faq-item"
-            open={openQuestion === item.question}
-            onToggle={(event) => setOpenQuestion(event.currentTarget.open ? item.question : null)}
-          >
-            <summary>
-              {item.question}
-              <Chevron />
-            </summary>
-            <p>{item.answer}</p>
-          </details>
-        ))}
+        {activeGroup.items.map((item) => {
+          const isOpen = openQuestion === item.question;
+          return (
+            <details key={item.question} className="wmv-faq-item" open={isOpen}>
+              <summary
+                onClick={(event) => {
+                  // Voorkomt dat de browser zelf toggelt: het native "toggle"-event
+                  // op <details> vuurt async (via een aparte task), waardoor bij het
+                  // sluiten van vraag A en openen van vraag B in dezelfde klik een
+                  // tweede klik nodig was. Door hier zelf te bepalen wat de volgende
+                  // open vraag is, gebeurt sluiten + openen in één React-state-update.
+                  event.preventDefault();
+                  setOpenQuestion(isOpen ? null : item.question);
+                }}
+              >
+                {item.question}
+                <Chevron />
+              </summary>
+              <p>{item.answer}</p>
+            </details>
+          );
+        })}
       </div>
     </div>
   );

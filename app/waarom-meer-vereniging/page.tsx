@@ -392,7 +392,7 @@ export default function WaaromMeerVerenigingPage() {
         <div className="container">
           <p className="eyebrow">Hoe we releasen</p>
           <h2>Een update moet eerst bewijzen dat hij werkt.</h2>
-          <div className="steps" style={{ marginTop: 24 }}>
+          <div className="steps wmv-steps-4" style={{ marginTop: 24 }}>
             {RELEASE_STEPS.map((step) => (
               <div className="step" key={step.title}>
                 <span className="wmv-icon">
