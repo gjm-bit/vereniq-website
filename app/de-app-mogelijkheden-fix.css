@@ -1,0 +1,120 @@
+/*
+ * Layoutfix voor de "Niet nóg een losse tool. Wel meer rust."-sectie op /app.
+ * Dit is CMS-content (Supabase, blockType "text", background:dark + columns:2)
+ * - de generieke `.cms-bg-dark .cms-rich-text` grid-regel in globals.css geldt
+ * voor ELKE CMS-sectie op de hele site die deze combinatie kiest, dus die
+ * regel wordt hier bewust NIET aangepast (zou elders ongecontroleerd andere
+ * content kunnen raken).
+ *
+ * In plaats daarvan scopen we deze fix op dezelfde manier als de bestaande
+ * de-app-*.css-bestanden al doen: via de sibling-combinator `~` op
+ * `.cms-product-explorer`, een blocktype dat uitsluitend op deze /app-pagina
+ * voorkomt (CmsProductExplorer, alleen gerenderd voor een card_grid-blok met
+ * presentation:"microdemo" + explorer:true). Op de huidige /app-pagina is dit
+ * de ENIGE sectie met cms-bg-dark + cms-columns-2 na die marker (geverifieerd
+ * tegen de daadwerkelijke productie-HTML) - deze regels raken dus geen andere
+ * bestaande CMS-content, nergens anders op de site.
+ */
+
+.cms-product-explorer ~ section.cms-bg-dark .cms-copy.cms-columns-2 .cms-rich-text {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(280px, 1fr);
+  grid-template-areas: "list text" "highlight highlight";
+  column-count: unset;
+  gap: 32px 48px;
+  align-items: start;
+}
+.cms-product-explorer ~ section.cms-bg-dark .cms-copy.cms-columns-2 .cms-rich-text > ul {
+  grid-area: list;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.cms-product-explorer ~ section.cms-bg-dark .cms-copy.cms-columns-2 .cms-rich-text > ul li {
+  display: flex;
+  align-items: center;
+  min-height: 84px;
+  padding: 18px 20px;
+  border: 1px solid rgb(145 177 255 / 22%);
+  border-radius: 12px;
+  background: rgb(255 255 255 / 5%);
+  box-shadow: inset 0 1px rgb(255 255 255 / 6%);
+  color: #f2f5ff;
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.35;
+  overflow-wrap: break-word;
+  hyphens: none;
+}
+.cms-product-explorer ~ section.cms-bg-dark .cms-copy.cms-columns-2 .cms-rich-text > p {
+  grid-area: text;
+  margin: 0 0 18px;
+  color: #d7dced;
+  line-height: 1.6;
+}
+.cms-product-explorer ~ section.cms-bg-dark .cms-copy.cms-columns-2 .cms-rich-text > p:has(strong) {
+  grid-area: highlight;
+  /* Overschrijft bewust de geërfde display:flex uit de generieke globals.css-
+     regel: die zou de float hieronder negeren (floats gelden niet voor
+     flex-items) en zou dit blok op elke breedte geforceerd naast elkaar
+     blijven tonen, ook op tablet/mobiel waar juist gestapeld moet worden. */
+  display: block;
+  min-height: 0;
+  margin: 8px 0 0;
+  padding: 32px 40px;
+  border-left: 3px solid #72a4ff;
+  border-radius: 12px;
+  background: linear-gradient(100deg, rgb(139 54 232 / 22%), rgb(36 118 243 / 16%));
+  box-shadow: 0 18px 38px rgb(0 0 0 / 18%);
+  color: #eef3ff;
+  font-size: clamp(1.05rem, 1.6vw, 1.25rem);
+  line-height: 1.5;
+  overflow: hidden;
+}
+.cms-product-explorer ~ section.cms-bg-dark .cms-copy.cms-columns-2 .cms-rich-text > p:has(strong) strong {
+  display: block;
+  float: left;
+  width: 300px;
+  margin: 0 32px 8px 0;
+  color: #fff;
+  font-size: clamp(1.2rem, 1.8vw, 1.5rem);
+  line-height: 1.3;
+}
+
+/* Tablet: 2 kolommen in het grid, tekstkolom (incl. highlight) onder het grid. */
+@media (max-width: 1050px) {
+  .cms-product-explorer ~ section.cms-bg-dark .cms-copy.cms-columns-2 .cms-rich-text {
+    grid-template-columns: 1fr;
+    grid-template-areas: "list" "text" "highlight";
+    gap: 24px;
+  }
+  .cms-product-explorer ~ section.cms-bg-dark .cms-copy.cms-columns-2 .cms-rich-text > ul {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .cms-product-explorer ~ section.cms-bg-dark .cms-copy.cms-columns-2 .cms-rich-text > p:has(strong) {
+    padding: 28px;
+  }
+  .cms-product-explorer ~ section.cms-bg-dark .cms-copy.cms-columns-2 .cms-rich-text > p:has(strong) strong {
+    float: none;
+    width: auto;
+    margin: 0 0 10px;
+    display: block;
+  }
+}
+
+/* Mobiel: 1 kolom, volle breedte. */
+@media (max-width: 700px) {
+  .cms-product-explorer ~ section.cms-bg-dark .cms-copy.cms-columns-2 .cms-rich-text > ul {
+    grid-template-columns: 1fr;
+  }
+  .cms-product-explorer ~ section.cms-bg-dark .cms-copy.cms-columns-2 .cms-rich-text > ul li {
+    min-height: 0;
+    padding: 16px 18px;
+  }
+  .cms-product-explorer ~ section.cms-bg-dark .cms-copy.cms-columns-2 .cms-rich-text > p:has(strong) {
+    padding: 22px;
+  }
+}
