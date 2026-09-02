@@ -7,6 +7,7 @@ import { site } from "@/src/config/site";
 import { CmsPublicPageView } from "@/src/components/cms-public-page";
 import { commercialCmsPathCandidates } from "@/src/lib/commercial-cms-paths.mjs";
 import { getPublishedCmsPage } from "@/src/lib/public-cms";
+import { pageMetadata } from "@/src/lib/seo";
 
 type Content = { title: string; intro: string; sections: { heading: string; body: string }[] };
 
@@ -36,13 +37,15 @@ async function getCmsPage(segments: readonly string[]) {
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string[] }> }) {
   const segments = (await params).slug;
+  const path = `/${segments.join("/")}`;
   const cmsPage = await getCmsPage(segments);
-  if (cmsPage) return { title: cmsPage.seoTitle ?? cmsPage.title, description: cmsPage.seoDescription ?? undefined, robots: cmsPage.noindex ? { index: false, follow: false } : undefined };
-  if (segments.length !== 1) return { title: "Pagina niet gevonden | Meer Vereniging" };
+  if (cmsPage) return pageMetadata({ title: cmsPage.seoTitle ?? cmsPage.title, description: cmsPage.seoDescription ?? "", path, noindex: cmsPage.noindex });
+  if (segments.length !== 1) return { title: "Pagina niet gevonden" };
   const slug = segments[0];
   const content = legal[slug];
   const meta = pageMeta[slug];
-  return { title: content?.title ?? meta?.[0] ?? "Meer Vereniging", description: content?.intro ?? meta?.[1] };
+  if (!content && !meta) return { title: "Pagina niet gevonden" };
+  return pageMetadata({ title: content?.title ?? meta?.[0] ?? "Meer Vereniging", description: content?.intro ?? meta?.[1] ?? "", path });
 }
 
 function Form({ demo }: { demo: boolean }) { return <section className="section"><div className="container"><form className="form" action={`mailto:${site.email}`} method="post" encType="text/plain"><label className="field">Naam<input required name="name" /></label><label className="field">Vereniging<input required name="organization" /></label>{demo && <label className="field">Type vereniging<select name="associationType"><option>Muziekvereniging</option><option>Sportvereniging</option><option>Carnavalsvereniging</option><option>Stichting</option><option>Andere vereniging</option></select></label>}<label className="field">E-mail<input required type="email" name="email" /></label><label className="field">Waar kunnen we mee helpen?<textarea required name="message" /></label><p>Direct contact? <a href={`mailto:${site.email}`}>{site.email}</a></p><p className="muted">Je gegevens worden alleen gebruikt om je bericht te beantwoorden. Lees onze <Link href="/privacy">privacyinformatie</Link>.</p><button className="btn btn-primary">{demo ? "Vraag informatie aan" : "Verstuur bericht"}</button></form></div></section>; }

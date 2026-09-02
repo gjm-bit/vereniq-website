@@ -1,12 +1,13 @@
-import type { Metadata } from "next";
-
 import { PublicShell } from "@/src/components/site-shell";
 import { TrialActivationStatus } from "@/src/components/trial-activation-status";
+import { pageMetadata } from "@/src/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata = pageMetadata({
   title: "Activeer je proefabonnement",
-  robots: { index: false, follow: false },
-};
+  description: "Rond de activatie van je gratis proefabonnement af.",
+  path: "/proefabonnement/activeren",
+  noindex: true,
+});
 
 export default function ProefabonnementActiverenPage() {
   return (

@@ -1,13 +1,13 @@
-import type { Metadata } from "next";
-
 import { PublicShell } from "@/src/components/site-shell";
 import { TrialSignupForm } from "@/src/components/trial-signup-form";
 import { getPublicTrialColorPresets, getPublicTrialPeriodDays } from "@/src/lib/public-trial";
+import { pageMetadata } from "@/src/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata = pageMetadata({
   title: "Probeer gratis",
   description: "Start een gratis proefabonnement voor je vereniging - geen creditcard nodig.",
-};
+  path: "/proefabonnement",
+});
 
 export default async function ProefabonnementPage() {
   const [trialDays, presets] = await Promise.all([getPublicTrialPeriodDays(), getPublicTrialColorPresets()]);
