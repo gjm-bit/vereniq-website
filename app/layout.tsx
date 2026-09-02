@@ -24,7 +24,7 @@ import "./waarom-meer-vereniging.css";
 import "./de-app-mogelijkheden-fix.css";
 
 export const metadata: Metadata = {
-  title: { default: "Meer Vereniging — Minder regelen. Meer verenigen.", template: "%s | Meer Vereniging" },
+  title: { default: "Meer Vereniging: minder regelen, meer verenigen.", template: "%s | Meer Vereniging" },
   description: "Het complete platform voor verenigingen die minder willen regelen en meer willen verenigen.",
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://meervereniging.nl"),
   // /site-icon is een dynamische Route Handler (app/site-icon/route.ts) die

@@ -1,5 +1,5 @@
 import Image from "next/image"; import { SiteLink as Link } from "./site-link"; import { site } from "@/src/config/site"; import { MobileMenu } from "./mobile-menu"; import { getOrganizationFooterData, getWebsiteSocialLinks, getWebsitePublicHeaderActions, type OrganizationFooterData, type WebsiteSocialLink, type WebsiteHeaderAction } from "@/src/lib/public-cms";
-export function Brand(){return <Link className="brand" href="/" aria-label="Meer Vereniging — homepage"><Image className="brand-icon" src="/brand/meer-vereniging-symbol.png" alt="" width={279} height={215} unoptimized/><span className="brand-text"><span className="brand-word">Meer Vereniging</span><span className="brand-tagline">Minder regelen. Meer verenigen.</span></span></Link>}
+export function Brand(){return <Link className="brand" href="/" aria-label="Meer Vereniging, ga naar de homepage"><Image className="brand-icon" src="/brand/meer-vereniging-symbol.png" alt="" width={279} height={215} unoptimized/><span className="brand-text"><span className="brand-word">Meer Vereniging</span><span className="brand-tagline">Minder regelen. Meer verenigen.</span></span></Link>}
 
 /**
  * De huidige, live knoppen - blijft ongewijzigd bestaan als terugvalpad
@@ -32,7 +32,7 @@ function HeaderActionLink({ action, className }: { action: WebsiteHeaderAction; 
 function HeaderBrand({ footer }: { footer: OrganizationFooterData | null }) {
   const name = footer?.organizationName || "Meer Vereniging";
   const tagline = footer?.slogan || "Minder regelen. Meer verenigen.";
-  return <Link className="brand" href="/" aria-label={`${name} — homepage`}>
+  return <Link className="brand" href="/" aria-label={`${name}, ga naar de homepage`}>
     {footer?.logoUrl
       ? <img className="brand-icon" src={footer.logoUrl} alt="" width={279} height={215} />
       : <Image className="brand-icon" src="/brand/meer-vereniging-symbol.png" alt="" width={279} height={215} unoptimized/>}
@@ -109,7 +109,7 @@ function FooterOrganization({ footer, socialLinks }: { footer: OrganizationFoote
   const hasKvkBtw = Boolean(footer?.kvkNumber || footer?.btwNumber);
   return <div>
     {footer?.logoUrl
-      ? <Link className="brand" href="/" aria-label={`${footer.organizationName} — homepage`}><img className="brand-lockup" src={footer.logoUrl} alt={footer.organizationName} width={104} height={91} /></Link>
+      ? <Link className="brand" href="/" aria-label={`${footer.organizationName}, ga naar de homepage`}><img className="brand-lockup" src={footer.logoUrl} alt={footer.organizationName} width={104} height={91} /></Link>
       : <Brand/>}
     <p style={{marginTop:16}}>{footer?.publicDescription || "Software voor verenigingen die overzicht willen houden in hun dagelijkse organisatie."}</p>
     {hasAddress ? <p>{footer!.street} {footer!.houseNumber}{footer!.houseNumberAddition ?? ""}<br/>{footer!.postalCode} {footer!.city}</p> : null}
