@@ -116,9 +116,16 @@ doelgroepen. `/kennisbank` alleen opgenomen als er echte artikelen zijn. Geen
 verzonnen `lastModified` — alleen gebruikt waar een echte CMS-`updatedAt` bestaat.
 
 `app/robots.ts`: `Allow: /` met `Disallow: /master`, `/cms-preview`, `/api/` voor
-`User-Agent: *`, plus expliciete, met naam genoemde regels voor de AI-crawlers uit
-`docs/ai-crawler-policy.md` (zelfde regels, bewust zichtbaar en niet stilzwijgend aan
-het wildcard-record overgelaten).
+`User-Agent: *`, plus expliciete, met naam genoemde regels voor uitsluitend de
+search/discovery- en live user-answer-crawlers uit `docs/ai-crawler-policy.md`
+(`OAI-SearchBot`, `ChatGPT-User`, `Claude-SearchBot`, `Claude-User`, `PerplexityBot`,
+`Perplexity-User`). Crawlers die volgens hun eigen documentatie (mede) voor
+modeltraining of datasetopbouw dienen (`GPTBot`, `ClaudeBot`, `Google-Extended`,
+`CCBot`) krijgen bewust **geen** aparte regel — dat zou een eigen beleidskeuze zijn
+(trainingsdata expliciet beschikbaar stellen), losgekoppeld van het doel
+"vindbaarheid/citatie" van deze policy. Ze vallen terug op het wildcard-record,
+dus niet geblokkeerd, maar ook niet ten onrechte bestempeld als "nodig voor
+AI-vindbaarheid". Zie `docs/ai-crawler-policy.md` voor de per-crawler bronnen.
 
 ## 5. Structured data
 

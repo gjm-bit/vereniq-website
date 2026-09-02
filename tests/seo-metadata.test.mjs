@@ -24,10 +24,17 @@ test("robots.txt allows public crawling and blocks internal-only routes", async 
   assert.match(body, /Disallow: \/cms-preview/);
   assert.match(body, /Disallow: \/api\//);
   assert.match(body, new RegExp(`Sitemap: ${SITE}/sitemap.xml`));
-  // Bewuste, met naam genoemde AI-crawlerpolicy (zie docs/ai-crawler-policy.md) -
-  // niet stilzwijgend aan het wildcard-record overgelaten.
-  for (const agent of ["GPTBot", "OAI-SearchBot", "ChatGPT-User", "ClaudeBot", "Claude-User", "Google-Extended", "PerplexityBot", "CCBot"]) {
+  // Bewuste, met naam genoemde AI-crawlerpolicy (zie docs/ai-crawler-policy.md):
+  // alleen search/discovery- en live-answercrawlers krijgen een expliciete regel.
+  for (const agent of ["OAI-SearchBot", "ChatGPT-User", "Claude-SearchBot", "Claude-User", "PerplexityBot", "Perplexity-User"]) {
     assert.match(body, new RegExp(`User-Agent: ${agent}\\b`), `verwacht een expliciete regel voor ${agent}`);
+  }
+  // Training-/datasetcrawlers krijgen bewust GEEN aparte, expliciete regel (dat zou
+  // een aparte beleidskeuze - training toestaan - zijn, losgekoppeld van
+  // vindbaarheid/citatie). Ze vallen terug op het wildcard-record, dus niet
+  // apart geblokkeerd, maar ook niet apart bevoordeeld.
+  for (const agent of ["GPTBot", "ClaudeBot", "Google-Extended", "CCBot"]) {
+    assert.doesNotMatch(body, new RegExp(`User-Agent: ${agent}\\b`), `verwacht GEEN aparte regel voor trainingscrawler ${agent}`);
   }
 });
 
