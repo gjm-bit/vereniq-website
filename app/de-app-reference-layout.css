@@ -47,12 +47,21 @@
    stale mobile treatment from cms-product-explorer.css's own @media block:
    display:flex + a fixed 172px card width, meant as a horizontal-scroll
    carousel. With only 1-2 real children per world that never needs to
-   scroll, it instead reads as two cramped narrow cards side by side. Same
-   fix, same breakpoint as the launcher grid directly above: force a single,
-   full-width column below the tablet breakpoint. Desktop/tablet keep the
-   existing, already-correct 5-column grid from de-app-polish.css untouched -
-   this rule only applies below 760px, so it can never affect that. */
-@media (max-width:759px) {
+   scroll, it instead reads as two cramped narrow cards side by side. Force
+   a single, full-width column below the tablet breakpoint. Desktop/tablet
+   keep the existing, already-correct 5-column grid from de-app-polish.css
+   untouched - this rule only applies at/below 800px, so it can never
+   affect that.
+   Breakpoint is 800px, not 759px/760px like the launcher grid above: the
+   buggy rule this overrides (de-app-polish.css's own @media(max-width:800px)
+   block) uses 800px, and CSS gives the later-loaded rule priority only
+   while both media queries match. A 759px cutoff here left a live gap at
+   760-800px (confirmed via production URL width tests, e.g. the common
+   768px tablet-portrait width) where the old flex/172px-card carousel
+   bug was still active. Matching the breakpoint exactly closes that gap;
+   do not lower this back to 759px without also raising the de-app-polish.css
+   bug rule's own breakpoint down to match. */
+@media (max-width:800px) {
   .cms-explorer-children { display:grid; grid-template-columns:repeat(1,minmax(0,1fr)); gap:16px; overflow-x:visible; }
   .cms-explorer-children button { width:100%; min-height:0; padding:20px; }
 }
