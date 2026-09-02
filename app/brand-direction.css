@@ -26,7 +26,38 @@ html { background: var(--brand-white); }
 body { background: var(--brand-white); color: var(--brand-text); font-family: var(--mv-sans); line-height: 1.55; }
 .container { width: min(1220px, calc(100% - 48px)); }
 .section { padding: clamp(72px, 9vw, 132px) 0; }
-.section-mist, .section-soft { background: var(--brand-surface); }
+/*
+ * Root cause (zie docs/known-issue-section-mist-contrast.md): dark-premium-v2.css
+ * definieert eerder in de cascade .section-mist/.section-soft met
+ * background:var(--bg-secondary) (donker) en color:var(--text-primary) (wit),
+ * bedoeld voor een donker canvas. Deze latere regel hier wint alleen de
+ * background-declaratie (cascade, gelijke specificiteit, later bestand) en
+ * laat die witte tekstkleur ongemoeid, waardoor .section-mist/.section-soft
+ * in de praktijk lichte achtergrond + witte tekst werd: vrijwel onleesbaar.
+ * Zetten van color:var(--brand-text) alleen op dit element is niet genoeg:
+ * meerdere losse componentregels binnen deze sectievariant - bijvoorbeeld
+ * .faq p in dark-premium-v2.css - zetten hun EIGEN color rechtstreeks op
+ * var(--text-secondary), en die overschrijft (hogere specificiteit dan
+ * pure inheritance) de hierboven ingestelde .section-mist/.section-soft
+ * color weer met dezelfde witte tint, ongeacht in welk bestand die losse
+ * regel staat of wanneer die geladen wordt.
+ * De structurele, niet-pagina-specifieke fix: --text-primary en
+ * --text-secondary zelf herdefiniëren, gescoped op deze sectievariant.
+ * Custom properties cascaden en overerven normaal, dus élke afstammeling
+ * die var(--text-primary)/var(--text-secondary) gebruikt - ook via een
+ * regel in een ander, eerder geladen bestand - resolvet vanaf hier
+ * automatisch naar de lichte-achtergrond-correcte waarde. Dat dekt niet
+ * alleen deze sectie zelf, maar ook toekomstige of nu nog onbekende
+ * componentregels binnen .section-mist/.section-soft die dezelfde tokens
+ * gebruiken - zonder dat we elke losse selector (.faq p, .lede, .muted,
+ * .story-body, ...) individueel moeten opsporen en overschrijven.
+ */
+.section-mist, .section-soft {
+  background: var(--brand-surface);
+  color: var(--brand-text);
+  --text-primary: var(--brand-text);
+  --text-secondary: var(--brand-text-muted);
+}
 h1, h2 { font-family: var(--mv-display); font-weight: 400; letter-spacing: -.035em; }
 h1 { max-width: 820px; font-size: clamp(2.8rem, 6vw, 5.2rem); line-height: 1.02; }
 h2 { font-size: clamp(2rem, 4vw, 3.45rem); line-height: 1.06; }

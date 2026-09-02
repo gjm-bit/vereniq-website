@@ -52,7 +52,7 @@ test("favicon: gebruikt dezelfde geautoriseerde, publieke leesroute als het logo
 
 test("header: bestaande naam en tekst blijven de default zolang er geen eigen waarde is ingesteld (of de RPC nog niet beschikbaar is)", async () => {
   const html = await (await render()).text();
-  assert.match(html, /aria-label="Meer Vereniging — homepage"/);
+  assert.match(html, /aria-label="Meer Vereniging, ga naar de homepage"/);
   assert.match(html, /Minder regelen\.<\/span>|Minder regelen\./);
 });
 

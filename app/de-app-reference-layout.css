@@ -42,6 +42,20 @@
 .cms-explorer-launcher .cms-explorer-icon svg { width:28px; height:28px; }
 .cms-explorer-launcher strong { margin:0; font-size:1.08rem; }
 .cms-explorer-launcher small { margin:0; }
+/* Children grid (the drill-down cards shown after picking a launcher world,
+   e.g. Meer -> "Eén account, al je verenigingen" / "Boetepot") inherited a
+   stale mobile treatment from cms-product-explorer.css's own @media block:
+   display:flex + a fixed 172px card width, meant as a horizontal-scroll
+   carousel. With only 1-2 real children per world that never needs to
+   scroll, it instead reads as two cramped narrow cards side by side. Same
+   fix, same breakpoint as the launcher grid directly above: force a single,
+   full-width column below the tablet breakpoint. Desktop/tablet keep the
+   existing, already-correct 5-column grid from de-app-polish.css untouched -
+   this rule only applies below 760px, so it can never affect that. */
+@media (max-width:759px) {
+  .cms-explorer-children { display:grid; grid-template-columns:repeat(1,minmax(0,1fr)); gap:16px; overflow-x:visible; }
+  .cms-explorer-children button { width:100%; min-height:0; padding:20px; }
+}
 /* Nested drill-down cards (children of a launcher world, e.g. Sport -> Voetbal,
    or Voetbal -> Wedstrijden/Opstellingen/...) reuse the same real WorldIcon
    glyph as their parent world (see cms-product-explorer.tsx) - the real app
