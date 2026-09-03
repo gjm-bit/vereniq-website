@@ -2,12 +2,20 @@ import type { Metadata } from "next";
 import { site } from "@/src/config/site";
 
 /**
- * Bestaand, echt merkasset (geen gegenereerde/AI-afbeelding): het logo met
- * tagline op een lichte achtergrond. Niet 1200x630 (het ideale OG-formaat),
- * maar wel herkenbaar en centraal gepositioneerd, dus bruikbare fallback
- * zolang er geen speciaal gemaakte 1200x630-afbeelding bestaat.
+ * OG/Twitter-fallbackafbeelding op het ideale 1200x630-formaat. Dit is geen
+ * nieuw of AI-gegenereerd ontwerp: het is het bestaande merklockup-asset
+ * (meer-vereniging-brand-lockup.png, 588x516) ongewijzigd en ongestretcht
+ * gecentreerd op een 1200x630-canvas, opgevuld met exact de eigen
+ * achtergrondkleur van dat asset (zie public/brand/meer-vereniging-og-image.png).
+ * Puur een canvasformaat-fix, geen contentwijziging. Voorheen werd hier
+ * rechtstreeks meer-vereniging-brand-lockup.png (588x516) gebruikt, wat
+ * kleiner is dan het door Facebook/LinkedIn/Twitter aanbevolen 1200x630 en
+ * daardoor op sommige platforms uitgerekt of met zwarte balken getoond kan
+ * worden.
  */
-const DEFAULT_OG_IMAGE = "/brand/meer-vereniging-brand-lockup.png";
+const DEFAULT_OG_IMAGE = "/brand/meer-vereniging-og-image.png";
+const DEFAULT_OG_IMAGE_WIDTH = 1200;
+const DEFAULT_OG_IMAGE_HEIGHT = 630;
 
 export function absoluteUrl(path: string): string {
   return new URL(path, site.url).toString();
@@ -46,7 +54,7 @@ export function pageMetadata(input: {
       siteName: site.name,
       type: "website",
       locale: "nl_NL",
-      images: [{ url: image, width: 588, height: 516, alt: `${site.name} logo` }],
+      images: [{ url: image, width: DEFAULT_OG_IMAGE_WIDTH, height: DEFAULT_OG_IMAGE_HEIGHT, alt: `${site.name} logo` }],
     },
     twitter: {
       card: "summary_large_image",
