@@ -18,6 +18,7 @@
 import { sha256Hex } from "@/src/lib/server/webcrypto";
 import { assertServerOnly } from "@/src/lib/server/server-only";
 import { submitToIndexNow } from "@/src/lib/server/indexnow";
+import { createIndexNowTracer } from "@/src/lib/server/indexnow-trace";
 import sitemap from "@/app/sitemap";
 
 export const runtime = "nodejs";
@@ -41,16 +42,24 @@ async function secretsMatch(a: string, b: string): Promise<boolean> {
 
 export async function POST(request: Request) {
   assertServerOnly();
+  // Tijdelijke diagnose-instrumentatie (zie indexnow-trace.ts) - logt
+  // uitsluitend een willekeurige correlation-id + eventnaam + elapsed ms,
+  // nooit het secret/headers/body/query.
+  const { trace } = createIndexNowTracer();
+  trace("route_start");
 
   const configuredSecret = process.env.INDEXNOW_TRIGGER_SECRET;
   if (!configuredSecret) {
+    trace("response_return", { status: 503, code: "not_configured" });
     return json({ success: false, code: "not_configured", message: "IndexNow-trigger is niet geconfigureerd." }, 503);
   }
 
   const providedSecret = request.headers.get("x-indexnow-trigger-secret") ?? "";
   if (!providedSecret || !(await secretsMatch(providedSecret, configuredSecret))) {
+    trace("response_return", { status: 401, code: "unauthorized" });
     return json({ success: false, code: "unauthorized", message: "Ongeldig of ontbrekend secret." }, 401);
   }
+  trace("auth_complete");
 
   const url = new URL(request.url);
   const fullResync = url.searchParams.get("mode") === "full";
@@ -59,24 +68,30 @@ export async function POST(request: Request) {
   if (fullResync) {
     const entries = await sitemap();
     requestedUrls = entries.map((entry) => entry.url);
+    trace("sitemap_loaded", { entryCount: entries.length });
   } else {
     let body: unknown = null;
     try {
       body = await request.json();
     } catch {
+      trace("response_return", { status: 400, code: "invalid_request" });
       return json({ success: false, code: "invalid_request", message: "Ongeldige aanvraag: verwacht JSON met een 'urls'-array." }, 400);
     }
     const urls = body && typeof body === "object" && "urls" in body ? (body as { urls: unknown }).urls : null;
     if (!Array.isArray(urls) || urls.length === 0) {
+      trace("response_return", { status: 400, code: "invalid_request" });
       return json({ success: false, code: "invalid_request", message: "Verwacht een niet-lege 'urls'-array in de request body." }, 400);
     }
     requestedUrls = urls.filter((entry): entry is string => typeof entry === "string");
   }
 
   if (requestedUrls.length === 0) {
+    trace("response_return", { status: 400, code: "invalid_request" });
     return json({ success: false, code: "invalid_request", message: "Geen bruikbare URL's in de aanvraag." }, 400);
   }
+  trace("validation_complete", { urlCount: requestedUrls.length });
 
-  const result = await submitToIndexNow(requestedUrls);
+  const result = await submitToIndexNow(requestedUrls, { trace });
+  trace("response_return", { status: 200, requested: result.requested, submitted: result.submitted });
   return json({ success: result.submitted > 0, ...result });
 }
