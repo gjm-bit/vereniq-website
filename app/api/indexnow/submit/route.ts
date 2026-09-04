@@ -19,9 +19,22 @@ import { sha256Hex } from "@/src/lib/server/webcrypto";
 import { assertServerOnly } from "@/src/lib/server/server-only";
 import { submitToIndexNow } from "@/src/lib/server/indexnow";
 import { createIndexNowTracer } from "@/src/lib/server/indexnow-trace";
+import { readJsonBodyWithTimeout } from "@/src/lib/server/indexnow-body-read";
 import sitemap from "@/app/sitemap";
 
 export const runtime = "nodejs";
+
+/**
+ * Bewezen live productiemeting (indexnow_trace, 3/3 requests): `await
+ * request.json()` kan in deze runtime blijven hangen tot Vercel's harde
+ * 300s-platformlimiet - ruim voorbij Websitebeheer se eigen 8000ms-
+ * round-trip-budget. Deze waarde ligt ruim onder dat budget: een geldige,
+ * kleine JSON-body (een handvol URL's) parseert normaliter in enkele
+ * milliseconden, dus 2000ms is ~750x zoveel marge boven het normale geval
+ * - deze grens wordt alleen ooit geraakt in exact het pathologische
+ * hang-scenario dat live is bewezen, nooit tijdens gewone werking.
+ */
+const BODY_READ_TIMEOUT_MS = 2000;
 
 function json(body: unknown, status = 200) {
   return Response.json(body, { status, headers: { "cache-control": "no-store" } });
@@ -74,16 +87,23 @@ export async function POST(request: Request) {
     requestedUrls = entries.map((entry) => entry.url);
     trace("sitemap_loaded", { entryCount: entries.length });
   } else {
-    let body: unknown = null;
     trace("body_read_start");
-    try {
-      body = await request.json();
-      trace("body_read_complete");
-    } catch (error) {
-      trace("body_read_error", { errorCategory: error instanceof Error ? error.name : "unknown_error" });
+    const bodyResult = await readJsonBodyWithTimeout(request, BODY_READ_TIMEOUT_MS);
+    if (!bodyResult.ok) {
+      if (bodyResult.reason === "timeout") {
+        // Het bewezen live scenario: de body kwam niet op tijd binnen.
+        // Antwoord DIRECT, gecontroleerd - laat de Lambda niet doorlopen
+        // tot Vercel's eigen 300s-platformlimiet.
+        trace("body_read_timeout");
+        trace("response_return", { status: 408, code: "request_body_timeout" });
+        return json({ success: false, code: "request_body_timeout", message: "De aanvraag kon niet op tijd worden gelezen. Probeer het later opnieuw." }, 408);
+      }
+      trace("body_read_error", { errorCategory: "invalid_json" });
       trace("response_return", { status: 400, code: "invalid_request" });
       return json({ success: false, code: "invalid_request", message: "Ongeldige aanvraag: verwacht JSON met een 'urls'-array." }, 400);
     }
+    trace("body_read_complete");
+    const body = bodyResult.body;
     const urls = body && typeof body === "object" && "urls" in body ? (body as { urls: unknown }).urls : null;
     if (!Array.isArray(urls) || urls.length === 0) {
       trace("response_return", { status: 400, code: "invalid_request" });

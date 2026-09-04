@@ -36,7 +36,7 @@ test("het IndexNow-sleutelbestand in public/ bevat exact de standaardsleutel, ge
   assert.equal(content, key);
 });
 
-async function render(path, { env = {}, method = "GET", headers = {}, body } = {}) {
+async function render(path, { env = {}, method = "GET", headers = {}, body, duplex } = {}) {
   const previousValues = {};
   for (const [key, value] of Object.entries(env)) {
     previousValues[key] = process.env[key];
@@ -46,8 +46,14 @@ async function render(path, { env = {}, method = "GET", headers = {}, body } = {
     const workerUrl = new URL("../dist/server/index.js", import.meta.url);
     workerUrl.searchParams.set("test", `${Date.now()}-${path}-${method}`);
     const { default: worker } = await import(workerUrl.href);
+    // `duplex: "half"` is alleen nodig (en alleen toegestaan) wanneer `body`
+    // een `ReadableStream` is - exact zoals het echte, door vinext
+    // gegenereerde `api/handler.mjs` dit voor iedere niet-GET/HEAD-request
+    // opbouwt (`Readable.toWeb(req)` + `duplex: "half"`), zodat deze tests
+    // hetzelfde streaming-bodygedrag nabootsen als productie.
+    const init = duplex ? { method, headers, body, duplex } : { method, headers, body };
     return await worker.fetch(
-      new Request(`http://localhost${path}`, { method, headers, body }),
+      new Request(`http://localhost${path}`, init),
       { ASSETS: { fetch: async () => new Response("Not found", { status: 404 }) } },
       { waitUntil() {}, passThroughOnException() {} },
     );
@@ -404,6 +410,165 @@ test("INDEXNOW DIAGNOSE: ongeldige JSON in de body logt body_read_start + body_r
   const allTraceText = traceLines.join("\n");
   assert.doesNotMatch(allTraceText, /correct-secret/, "het secret mag nergens in de trace-logregels voorkomen, ook niet bij een parse-fout");
   assert.doesNotMatch(allTraceText, /dit-is-geen-geldige-json/, "de ongeldige body-inhoud zelf mag nergens gelogd worden");
+});
+
+test("FIX: een hangende requestbody (nooit sluitende stream) laat de respons NIET wachten tot Vercel's 300s-limiet - gecontroleerde 408 request_body_timeout, ruim binnen Websitebeheer se 8000ms-budget, external_fetch_start wordt NIET bereikt", async (t) => {
+  const originalFetch = globalThis.fetch;
+  const originalInfo = console.info;
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+    console.info = originalInfo;
+  });
+  // Nooit externe IndexNow-aanroepen mogen plaatsvinden in dit scenario -
+  // een aanroep hier zou een testfout veroorzaken.
+  globalThis.fetch = async (url, init) => {
+    if (url === "https://api.indexnow.org/indexnow") throw new Error("external_fetch_start had NOOIT bereikt mogen worden bij een body-timeout");
+    return originalFetch(url, init);
+  };
+
+  const traceLines = [];
+  console.info = (...args) => {
+    traceLines.push(String(args[0]));
+  };
+
+  // Simuleert exact het bewezen live scenario: een `ReadableStream` die
+  // nooit `enqueue`/`close` aanroept - dus een `request.json()` die
+  // permanent zou blijven hangen zonder de nieuwe timeout.
+  //
+  // Bewust GEEN assertie hier dat de `cancel()` van *deze* stream wordt
+  // aangeroepen: vinext's eigen routing (`request-pipeline.js`,
+  // `cloneRequestWithUrl`/`cloneRequestWithHeaders`, gebruikt voor de
+  // interne `?path=`-herschrijving die ook de echte Vercel-adapter
+  // toepast) bouwt de `Request` intern opnieuw op vóórdat de route hem
+  // ziet - rechtstreeks tegen een kale `Request` bewezen dat
+  // `readJsonBodyWithTimeout`'s `reader.cancel()` de onderliggende bron
+  // wél daadwerkelijk aanspreekt (zie het commentaar in
+  // `indexnow-body-read.ts`), maar via déze end-to-end pipeline is dat
+  // niet meer op deze manier waarneembaar. Wat hier wél aantoonbaar en
+  // doorslaggevend is: de respons zelf blokkeert niet.
+  const neverClosingStream = new ReadableStream({
+    start() {
+      // Bewust leeg - de stream levert nooit data en sluit nooit.
+    },
+  });
+
+  const env = { ...commonEnv, INDEXNOW_TRIGGER_SECRET: "correct-secret" };
+  const startedAt = Date.now();
+  const response = await render("/api/indexnow/submit", {
+    env,
+    method: "POST",
+    headers: { "x-indexnow-trigger-secret": "correct-secret", "content-type": "application/json" },
+    body: neverClosingStream,
+    duplex: "half",
+  });
+  const elapsedMs = Date.now() - startedAt;
+  const bodyText = await response.text();
+
+  assert.equal(response.status, 408, "een hangende body moet een gecontroleerde 408 opleveren, geen 500 en geen hang");
+  const data = JSON.parse(bodyText);
+  assert.equal(data.success, false);
+  assert.equal(data.code, "request_body_timeout");
+
+  // De kern van de fix: ruim binnen de gekozen 2000ms-grens (met marge
+  // voor testomgevingsjitter), en ver onder Websitebeheer se 8000ms-budget.
+  assert.ok(elapsedMs < 2800, `body-read-timeout had rond 2000ms moeten afgaan, duurde ${elapsedMs}ms`);
+  assert.ok(elapsedMs < 8000 - 1000, "moet aantoonbaar marge overlaten onder het 8000ms-timeoutbudget van Websitebeheer");
+
+  const traces = traceLines.filter((line) => line.includes('"scope":"indexnow_trace"')).map((line) => JSON.parse(line));
+  const events = traces.map((entry) => entry.event);
+  assert.ok(events.includes("body_read_start"));
+  assert.ok(events.includes("body_read_timeout"));
+  assert.ok(!events.includes("body_read_complete"), "body_read_complete mag niet voorkomen bij een timeout");
+  assert.ok(!events.includes("validation_complete"), "validation_complete mag niet bereikt worden bij een body-timeout");
+  assert.ok(!events.includes("external_fetch_start"), "external_fetch_start mag NOOIT bereikt worden bij een body-timeout");
+
+  const allTraceText = traceLines.join("\n");
+  assert.doesNotMatch(allTraceText, /correct-secret/, "het secret mag nergens in de trace-logregels voorkomen bij een body-timeout");
+  assert.doesNotMatch(bodyText, /correct-secret/, "het secret mag nergens in de responsbody voorkomen bij een body-timeout");
+});
+
+test("FIX: als de hangende body ALSNOG (ná de timeoutrespons) alsnog geldige JSON oplevert, veroorzaakt dat geen unhandled rejection, geen tweede respons en geen alsnog uitgevoerde IndexNow-submit", async (t) => {
+  const originalFetch = globalThis.fetch;
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+  });
+  let externalFetchCalled = false;
+  globalThis.fetch = async (url, init) => {
+    if (url === "https://api.indexnow.org/indexnow") {
+      externalFetchCalled = true;
+      return new Response(null, { status: 200 });
+    }
+    return originalFetch(url, init);
+  };
+
+  const unhandledRejections = [];
+  const onUnhandledRejection = (reason) => {
+    unhandledRejections.push(reason);
+  };
+  process.on("unhandledRejection", onUnhandledRejection);
+  t.after(() => {
+    process.off("unhandledRejection", onUnhandledRejection);
+  });
+
+  // Levert pas ná de 2000ms-body-read-timeout alsnog een geldige body -
+  // simuleert een trage/vertraagd binnenkomende stream die uiteindelijk
+  // wél voltooit, ruim nadat de route al heeft geantwoord.
+  const encoder = new TextEncoder();
+  const lateStream = new ReadableStream({
+    start(controller) {
+      setTimeout(() => {
+        controller.enqueue(encoder.encode(JSON.stringify({ urls: [`${SITE}/platform`] })));
+        controller.close();
+      }, 2500);
+    },
+  });
+
+  const env = { ...commonEnv, INDEXNOW_TRIGGER_SECRET: "correct-secret" };
+  const response = await render("/api/indexnow/submit", {
+    env,
+    method: "POST",
+    headers: { "x-indexnow-trigger-secret": "correct-secret", "content-type": "application/json" },
+    body: lateStream,
+    duplex: "half",
+  });
+
+  assert.equal(response.status, 408);
+  assert.equal((await response.json()).code, "request_body_timeout");
+
+  // Wacht ruim voorbij het moment waarop de late stream alsnog voltooit,
+  // om te bewijzen dat dat geen alsnog-effecten meer heeft.
+  await new Promise((resolve) => setTimeout(resolve, 1500));
+
+  assert.equal(externalFetchCalled, false, "een later alsnog voltooide body mag nooit alsnog tot een IndexNow-submit leiden");
+  assert.deepEqual(unhandledRejections, [], "een later alsnog resolvende/rejectende request.json()-promise mag nooit een unhandled rejection veroorzaken");
+});
+
+test("FIX: geldige, snel beschikbare body blijft de bestaande flow volgen - external_fetch_start wordt bereikt, ongewijzigd 200-contract", async (t) => {
+  const originalFetch = globalThis.fetch;
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+  });
+  let externalFetchCalled = false;
+  globalThis.fetch = async (url, init) => {
+    if (url === "https://api.indexnow.org/indexnow") {
+      externalFetchCalled = true;
+      return new Response(null, { status: 200 });
+    }
+    return originalFetch(url, init);
+  };
+
+  const env = { ...commonEnv, INDEXNOW_TRIGGER_SECRET: "correct-secret" };
+  const response = await render("/api/indexnow/submit", {
+    env,
+    method: "POST",
+    headers: { "x-indexnow-trigger-secret": "correct-secret", "content-type": "application/json" },
+    body: JSON.stringify({ urls: [`${SITE}/platform`] }),
+  });
+
+  assert.equal(response.status, 200);
+  const data = await response.json();
+  assert.equal(data.success, true);
+  assert.equal(externalFetchCalled, true, "een geldige, snelle body moet de bestaande IndexNow-flow gewoon bereiken");
 });
 
 test("POST /api/indexnow/submit?mode=full dient de volledige actuele sitemap in, geen aparte body nodig", async (t) => {
