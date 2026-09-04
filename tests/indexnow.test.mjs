@@ -331,6 +331,81 @@ test("INDEXNOW DIAGNOSE: bij een hangende externe call logt de trace apart wanne
   assert.doesNotMatch(allTraceText, /correct-secret/, "het secret mag nergens in de trace-logregels voorkomen, ook niet bij een fout");
 });
 
+test("INDEXNOW DIAGNOSE: een geldige requestbody logt url_parsed, body_read_start en body_read_complete rond het lezen van de body, zonder secret-/body-/headerlekkage, met ongewijzigd 200-contract", async (t) => {
+  const originalFetch = globalThis.fetch;
+  const originalInfo = console.info;
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+    console.info = originalInfo;
+  });
+  globalThis.fetch = async (url, init) => (url === "https://api.indexnow.org/indexnow" ? new Response(null, { status: 200 }) : originalFetch(url, init));
+
+  const traceLines = [];
+  console.info = (...args) => {
+    traceLines.push(String(args[0]));
+  };
+
+  const env = { ...commonEnv, INDEXNOW_TRIGGER_SECRET: "correct-secret" };
+  const response = await render("/api/indexnow/submit", {
+    env,
+    method: "POST",
+    headers: { "x-indexnow-trigger-secret": "correct-secret", "content-type": "application/json" },
+    body: JSON.stringify({ urls: [`${SITE}/platform`] }),
+  });
+  assert.equal(response.status, 200, "functioneel 200-contract mag niet veranderen door de body_read-instrumentatie");
+  assert.equal((await response.json()).success, true);
+
+  const traces = traceLines.filter((line) => line.includes('"scope":"indexnow_trace"')).map((line) => JSON.parse(line));
+  const events = traces.map((entry) => entry.event);
+  const expectedOrder = ["route_start", "auth_complete", "url_parsed", "body_read_start", "body_read_complete", "validation_complete", "external_fetch_start", "external_fetch_end", "response_return"];
+  for (const expected of expectedOrder) {
+    assert.ok(events.includes(expected), `verwacht event '${expected}' in de trace, kreeg: ${events.join(", ")}`);
+  }
+  // De volgorde moet exact overeenkomen met de daadwerkelijke uitvoeringsvolgorde.
+  const indices = expectedOrder.map((event) => events.indexOf(event));
+  for (let index = 1; index < indices.length; index += 1) {
+    assert.ok(indices[index] > indices[index - 1], `event '${expectedOrder[index]}' moet ná '${expectedOrder[index - 1]}' gelogd worden`);
+  }
+  assert.equal(events.filter((event) => event === "body_read_error").length, 0, "bij een geldige body mag body_read_error niet voorkomen");
+
+  const allTraceText = traceLines.join("\n");
+  assert.doesNotMatch(allTraceText, /correct-secret/, "het secret mag nergens in de trace-logregels voorkomen");
+  assert.doesNotMatch(allTraceText, new RegExp(SITE.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "/platform"), "geen requestbody-inhoud (URL's) in de trace-logregels");
+  assert.doesNotMatch(allTraceText, /"urls"/, "geen requestbody-veldnamen/-inhoud in de trace-logregels");
+});
+
+test("INDEXNOW DIAGNOSE: ongeldige JSON in de body logt body_read_start + body_read_error (nooit body_read_complete), zonder secretlekkage, met ongewijzigd 400-contract", async (t) => {
+  const originalInfo = console.info;
+  t.after(() => {
+    console.info = originalInfo;
+  });
+
+  const traceLines = [];
+  console.info = (...args) => {
+    traceLines.push(String(args[0]));
+  };
+
+  const env = { ...commonEnv, INDEXNOW_TRIGGER_SECRET: "correct-secret" };
+  const response = await render("/api/indexnow/submit", {
+    env,
+    method: "POST",
+    headers: { "x-indexnow-trigger-secret": "correct-secret", "content-type": "application/json" },
+    body: "dit-is-geen-geldige-json",
+  });
+  assert.equal(response.status, 400, "functioneel 400-contract mag niet veranderen door de body_read-instrumentatie");
+  assert.equal((await response.json()).code, "invalid_request");
+
+  const traces = traceLines.filter((line) => line.includes('"scope":"indexnow_trace"')).map((line) => JSON.parse(line));
+  const events = traces.map((entry) => entry.event);
+  assert.ok(events.includes("body_read_start"), "verwacht body_read_start ook bij een ongeldige body");
+  assert.ok(events.includes("body_read_error"), "verwacht body_read_error bij een parse-fout");
+  assert.ok(!events.includes("body_read_complete"), "body_read_complete mag niet voorkomen als het parsen faalde");
+
+  const allTraceText = traceLines.join("\n");
+  assert.doesNotMatch(allTraceText, /correct-secret/, "het secret mag nergens in de trace-logregels voorkomen, ook niet bij een parse-fout");
+  assert.doesNotMatch(allTraceText, /dit-is-geen-geldige-json/, "de ongeldige body-inhoud zelf mag nergens gelogd worden");
+});
+
 test("POST /api/indexnow/submit?mode=full dient de volledige actuele sitemap in, geen aparte body nodig", async (t) => {
   const calls = [];
   const originalFetch = globalThis.fetch;
