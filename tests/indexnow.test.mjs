@@ -157,6 +157,81 @@ test("POST /api/indexnow/submit: een IndexNow-netwerkfout geeft een nette 200-sa
   assert.equal(data.submitted, 0);
 });
 
+test("POST /api/indexnow/submit: geldig secret + snel antwoordende IndexNow-call geeft een vlotte succesvolle ontvangstrespons", async (t) => {
+  const originalFetch = globalThis.fetch;
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+  });
+  globalThis.fetch = async (url, init) => (url === "https://api.indexnow.org/indexnow" ? new Response(null, { status: 200 }) : originalFetch(url, init));
+
+  const env = { ...commonEnv, INDEXNOW_TRIGGER_SECRET: "correct-secret" };
+  const startedAt = Date.now();
+  const response = await render("/api/indexnow/submit", {
+    env,
+    method: "POST",
+    headers: { "x-indexnow-trigger-secret": "correct-secret", "content-type": "application/json" },
+    body: JSON.stringify({ urls: [`${SITE}/platform`] }),
+  });
+  const elapsedMs = Date.now() - startedAt;
+
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).success, true);
+  // Ruime marge (1s) - dit bewijst alleen dat een normale, snel antwoordende
+  // aanroep niet zelf al traag is; de eigenlijke timeout-race zit in de
+  // hierna volgende test.
+  assert.ok(elapsedMs < 1000, `verwacht een vlotte respons, duurde ${elapsedMs}ms`);
+});
+
+test("POST /api/indexnow/submit: een IndexNow-call die blijft hangen laat de ontvangstrespons NIET langer wachten dan de interne timeout, en blijft ruim binnen het 8000ms-budget van Websitebeheer (geen 500, fail-open)", async (t) => {
+  const originalFetch = globalThis.fetch;
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+  });
+  // Simuleert een IndexNow-call die permanent blijft hangen totdat de
+  // AbortSignal van submitToIndexNow zelf afgaat - exact hoe een echte
+  // `fetch` met een AbortSignal zich gedraagt. Zonder de fix in
+  // src/lib/server/indexnow.ts (REQUEST_TIMEOUT_MS omlaag naar 5000ms, ruim
+  // onder de eigen 8000ms round-trip-timeout van Websitebeheer) zou deze test
+  // nooit binnen een redelijke tijd resolven.
+  globalThis.fetch = (url, init) => {
+    if (url !== "https://api.indexnow.org/indexnow") return originalFetch(url, init);
+    return new Promise((_resolve, reject) => {
+      init.signal.addEventListener("abort", () => {
+        const error = new Error("The operation was aborted.");
+        error.name = "AbortError";
+        reject(error);
+      });
+    });
+  };
+
+  const env = { ...commonEnv, INDEXNOW_TRIGGER_SECRET: "correct-secret" };
+  const startedAt = Date.now();
+  const response = await render("/api/indexnow/submit", {
+    env,
+    method: "POST",
+    headers: { "x-indexnow-trigger-secret": "correct-secret", "content-type": "application/json" },
+    body: JSON.stringify({ urls: [`${SITE}/platform`] }),
+  });
+  const elapsedMs = Date.now() - startedAt;
+  const bodyText = await response.text();
+
+  assert.equal(response.status, 200, "een hangende IndexNow-call mag nooit een 500 opleveren");
+  const data = JSON.parse(bodyText);
+  assert.equal(data.success, false);
+  assert.equal(data.submitted, 0);
+
+  // De kern van de fix: de respons moet rond de interne 5000ms-timeout
+  // vallen (met wat marge voor testomgevingsjitter), en - het echte
+  // contract - ruim binnen het 8000ms-budget van Websitebeheer blijven,
+  // zodat de aanroeper niet zelf al getimeout is vóórdat dit antwoord er is.
+  assert.ok(elapsedMs < 6500, `interne timeout had moeten afgaan rond 5000ms, duurde ${elapsedMs}ms`);
+  assert.ok(elapsedMs < 8000 - 1000, "moet aantoonbaar marge overlaten onder het 8000ms-timeoutbudget van Websitebeheer");
+
+  // Geen secretlekkage: het geconfigureerde secret mag nergens in de
+  // (foutieve of succesvolle) responsbody voorkomen.
+  assert.doesNotMatch(bodyText, /correct-secret/);
+});
+
 test("POST /api/indexnow/submit?mode=full dient de volledige actuele sitemap in, geen aparte body nodig", async (t) => {
   const calls = [];
   const originalFetch = globalThis.fetch;
