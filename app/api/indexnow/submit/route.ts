@@ -63,6 +63,10 @@ export async function POST(request: Request) {
 
   const url = new URL(request.url);
   const fullResync = url.searchParams.get("mode") === "full";
+  // Sluit de (synchrone) URL-/querystringparsing zelf apart uit als
+  // mogelijk blokkeerpunt - tussen dit event en `body_read_start` staat
+  // geen enkele andere statement.
+  trace("url_parsed", { fullResync });
 
   let requestedUrls: string[] = [];
   if (fullResync) {
@@ -71,9 +75,12 @@ export async function POST(request: Request) {
     trace("sitemap_loaded", { entryCount: entries.length });
   } else {
     let body: unknown = null;
+    trace("body_read_start");
     try {
       body = await request.json();
-    } catch {
+      trace("body_read_complete");
+    } catch (error) {
+      trace("body_read_error", { errorCategory: error instanceof Error ? error.name : "unknown_error" });
       trace("response_return", { status: 400, code: "invalid_request" });
       return json({ success: false, code: "invalid_request", message: "Ongeldige aanvraag: verwacht JSON met een 'urls'-array." }, 400);
     }
