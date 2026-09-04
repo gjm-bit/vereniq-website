@@ -232,6 +232,105 @@ test("POST /api/indexnow/submit: een IndexNow-call die blijft hangen laat de ont
   assert.doesNotMatch(bodyText, /correct-secret/);
 });
 
+test("INDEXNOW DIAGNOSE: de tijdelijke faseinstrumentatie logt de verwachte fasen met een consistente correlation-id, lekt nergens het secret, en het functionele 401/200-contract blijft ongewijzigd", async (t) => {
+  const originalFetch = globalThis.fetch;
+  const originalInfo = console.info;
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+    console.info = originalInfo;
+  });
+  globalThis.fetch = async (url, init) => (url === "https://api.indexnow.org/indexnow" ? new Response(null, { status: 200 }) : originalFetch(url, init));
+
+  const traceLines = [];
+  console.info = (...args) => {
+    traceLines.push(String(args[0]));
+  };
+
+  const env = { ...commonEnv, INDEXNOW_TRIGGER_SECRET: "correct-secret" };
+  const response = await render("/api/indexnow/submit", {
+    env,
+    method: "POST",
+    headers: { "x-indexnow-trigger-secret": "correct-secret", "content-type": "application/json" },
+    body: JSON.stringify({ urls: [`${SITE}/platform`] }),
+  });
+  assert.equal(response.status, 200, "functioneel 200-contract mag niet veranderen door instrumentatie");
+  const data = await response.json();
+  assert.equal(data.success, true);
+
+  const traces = traceLines.filter((line) => line.includes('"scope":"indexnow_trace"')).map((line) => JSON.parse(line));
+  assert.ok(traces.length > 0, "verwacht minstens één indexnow_trace-logregel");
+
+  const correlationIds = new Set(traces.map((entry) => entry.correlationId));
+  assert.equal(correlationIds.size, 1, "alle trace-events van één request moeten dezelfde correlation-id delen");
+  const [correlationId] = correlationIds;
+  assert.match(correlationId, /^[a-f0-9]{16}$/, "correlation-id moet een willekeurige hexstring zijn, geen gebruikersinfo");
+
+  const events = traces.map((entry) => entry.event);
+  for (const expected of ["route_start", "auth_complete", "validation_complete", "external_fetch_start", "external_fetch_end", "response_return"]) {
+    assert.ok(events.includes(expected), `verwacht event '${expected}' in de trace, kreeg: ${events.join(", ")}`);
+  }
+  // Volgorde moet chronologisch kloppen (elapsedMs niet-dalend binnen de trace).
+  for (let index = 1; index < traces.length; index += 1) {
+    assert.ok(traces[index].elapsedMs >= traces[index - 1].elapsedMs, "elapsedMs moet niet-dalend zijn binnen één request-trace");
+  }
+
+  const allTraceText = traceLines.join("\n");
+  assert.doesNotMatch(allTraceText, /correct-secret/, "het secret mag nergens in de trace-logregels voorkomen");
+  assert.doesNotMatch(allTraceText, /x-indexnow-trigger-secret/i, "geen headernamen/-waarden in de trace-logregels");
+  assert.doesNotMatch(allTraceText, new RegExp(SITE.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "/platform"), "geen volledige request-URL's in de trace-logregels");
+});
+
+test("INDEXNOW DIAGNOSE: bij een hangende externe call logt de trace apart wanneer de AbortSignal afgaat én wanneer de fetch-promise daadwerkelijk settled, zonder secretlekkage, met ongewijzigd fail-open 200-contract", async (t) => {
+  const originalFetch = globalThis.fetch;
+  const originalInfo = console.info;
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+    console.info = originalInfo;
+  });
+  globalThis.fetch = (url, init) => {
+    if (url !== "https://api.indexnow.org/indexnow") return originalFetch(url, init);
+    return new Promise((_resolve, reject) => {
+      init.signal.addEventListener("abort", () => {
+        const error = new Error("The operation was aborted.");
+        error.name = "AbortError";
+        reject(error);
+      });
+    });
+  };
+
+  const traceLines = [];
+  console.info = (...args) => {
+    traceLines.push(String(args[0]));
+  };
+
+  const env = { ...commonEnv, INDEXNOW_TRIGGER_SECRET: "correct-secret" };
+  const response = await render("/api/indexnow/submit", {
+    env,
+    method: "POST",
+    headers: { "x-indexnow-trigger-secret": "correct-secret", "content-type": "application/json" },
+    body: JSON.stringify({ urls: [`${SITE}/platform`] }),
+  });
+  assert.equal(response.status, 200, "fail-open-contract mag niet veranderen door instrumentatie");
+  const data = await response.json();
+  assert.equal(data.success, false);
+
+  const traces = traceLines.filter((line) => line.includes('"scope":"indexnow_trace"')).map((line) => JSON.parse(line));
+  const events = traces.map((entry) => entry.event);
+  assert.ok(events.includes("external_fetch_abort_signal_fired"), "verwacht dat het moment van abort() apart gelogd wordt");
+  assert.ok(events.includes("external_fetch_error"), "verwacht dat het moment waarop de fetch-promise settled apart gelogd wordt");
+
+  const abortEvent = traces.find((entry) => entry.event === "external_fetch_abort_signal_fired");
+  const settleEvent = traces.find((entry) => entry.event === "external_fetch_error");
+  assert.ok(abortEvent.elapsedMs >= 4900 && abortEvent.elapsedMs <= 5500, `abort-signaal had rond 5000ms moeten afgaan, was ${abortEvent.elapsedMs}ms`);
+  assert.ok(
+    settleEvent.elapsedMs >= abortEvent.elapsedMs,
+    "de fetch-promise kan pas ná (of gelijktijdig met) het abort-signaal settlen",
+  );
+
+  const allTraceText = traceLines.join("\n");
+  assert.doesNotMatch(allTraceText, /correct-secret/, "het secret mag nergens in de trace-logregels voorkomen, ook niet bij een fout");
+});
+
 test("POST /api/indexnow/submit?mode=full dient de volledige actuele sitemap in, geen aparte body nodig", async (t) => {
   const calls = [];
   const originalFetch = globalThis.fetch;
