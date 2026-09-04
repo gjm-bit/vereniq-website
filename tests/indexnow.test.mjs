@@ -513,12 +513,29 @@ test("FIX: als de hangende body ALSNOG (ná de timeoutrespons) alsnog geldige JS
   // Levert pas ná de 2000ms-body-read-timeout alsnog een geldige body -
   // simuleert een trage/vertraagd binnenkomende stream die uiteindelijk
   // wél voltooit, ruim nadat de route al heeft geantwoord.
+  //
+  // De `try/catch` hier is zelf onderdeel van het bewijs (vinext-
+  // upgradeproef, PR #2741): vóór de upgrade tee'de vinext's eigen
+  // `NextRequest`-constructor de body, waardoor `reader.cancel()` in
+  // `readJsonBodyWithTimeout` nooit echt bij DEZE teststream aankwam - een
+  // late `enqueue()` op een "gecancelde" stream faalde dus nooit. Ná de
+  // upgrade wordt de body overgedragen i.p.v. getee'd, dus cancellatie
+  // bereikt nu wél de echte controller, en een late `enqueue()` gooit
+  // terecht "Controller is already closed". Dat is precies het gedrag dat
+  // een reële streambron sowieso zelf zou moeten afvangen (nooit enqueuen
+  // op een gecancelde stream) - vandaar de vangst hier, niet als
+  // work-around maar als correcte streambron-implementatie.
   const encoder = new TextEncoder();
   const lateStream = new ReadableStream({
     start(controller) {
       setTimeout(() => {
-        controller.enqueue(encoder.encode(JSON.stringify({ urls: [`${SITE}/platform`] })));
-        controller.close();
+        try {
+          controller.enqueue(encoder.encode(JSON.stringify({ urls: [`${SITE}/platform`] })));
+          controller.close();
+        } catch {
+          // Verwacht ná de vinext-upgrade: de stream is dan al echt
+          // gecanceld (zie toelichting hierboven) - geen actie nodig.
+        }
       }, 2500);
     },
   });
