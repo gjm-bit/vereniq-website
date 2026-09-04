@@ -1,12 +1,14 @@
 import type { MetadataRoute } from "next";
 import { site } from "@/src/config/site";
+import { DISALLOWED_PATH_PREFIXES } from "@/src/config/crawl-policy";
 
 /**
  * Niet-publieke routes: interne beheerportal, CMS-previewframe en de
  * form-post-only API-routes. Geen van deze routes bevat waardevolle,
  * indexeerbare content, en /master bevat mogelijk niet-publieke informatie.
+ * Gedeeld met `src/lib/server/indexnow.ts`, zie `src/config/crawl-policy.ts`.
  */
-const DISALLOW_ALWAYS = ["/master", "/cms-preview", "/api/"];
+const DISALLOW_ALWAYS = [...DISALLOWED_PATH_PREFIXES];
 
 /**
  * AI crawler policy - zie docs/ai-crawler-policy.md voor de volledige

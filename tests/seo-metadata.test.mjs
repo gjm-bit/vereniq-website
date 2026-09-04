@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 async function render(path) {
@@ -72,6 +73,25 @@ test("public pages expose Open Graph and Twitter Card metadata", async () => {
   assert.match(html, new RegExp(`property="og:url" content="${SITE}/waarom-meer-vereniging"`));
   assert.match(html, /property="og:image"/);
   assert.match(html, /name="twitter:card" content="summary_large_image"/);
+});
+
+test("the fallback OG/Twitter image is the ideal 1200x630 size, not the old 588x516 near-square asset", async () => {
+  // Regressiebescherming: de OG-fallback was eerder meer-vereniging-brand-lockup.png
+  // (588x516), kleiner dan het door Facebook/LinkedIn/Twitter aanbevolen 1200x630 -
+  // gefixed via public/brand/meer-vereniging-og-image.png (hetzelfde merkasset,
+  // ongewijzigd en ongestretcht gecentreerd op een correct 1200x630-canvas).
+  const html = await (await render("/")).text();
+  assert.match(html, /property="og:image:width" content="1200"/);
+  assert.match(html, /property="og:image:height" content="630"/);
+  assert.match(html, /property="og:image" content="https:\/\/meervereniging\.nl\/brand\/meer-vereniging-og-image\.png"/);
+});
+
+test("the OG image file on disk is actually 1200x630 (not just claimed in metadata)", async () => {
+  const buffer = await readFile(new URL("../public/brand/meer-vereniging-og-image.png", import.meta.url));
+  // PNG IHDR: signature(8) + length(4) + "IHDR"(4) = offset 16, then width(4) height(4), big-endian.
+  assert.equal(buffer.toString("ascii", 12, 16), "IHDR");
+  assert.equal(buffer.readUInt32BE(16), 1200, "width");
+  assert.equal(buffer.readUInt32BE(20), 630, "height");
 });
 
 test("noindex pages carry a robots noindex meta tag", async () => {
