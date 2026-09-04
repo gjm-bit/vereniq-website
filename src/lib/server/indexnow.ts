@@ -91,7 +91,24 @@ export function partitionSubmittableUrls(candidates: readonly string[]): { accep
 const INDEXNOW_ENDPOINT = "https://api.indexnow.org/indexnow";
 /** IndexNow staat tot 10.000 URL's per submission toe; hier ruim onder gebleven uit voorzichtigheid. */
 const MAX_URLS_PER_BATCH = 2000;
-const REQUEST_TIMEOUT_MS = 8000;
+/**
+ * De aanroepende `POST /api/indexnow/submit`-route (route.ts) `await`'t deze
+ * hele functie vóórdat zij zelf antwoordt - er is hier geen betrouwbare
+ * fire-and-forget/`waitUntil`-primitive beschikbaar voor route handlers in
+ * de huidige vinext-versie (1.0.0-beta.2): de enige `waitUntil`/
+ * `getRequestExecutionContext`-mechanismen in het framework zitten achter
+ * interne, niet-publieke paden voor de eigen ISR-cache van vinext, niet
+ * bedoeld/gedocumenteerd voor gebruik door route handlers.
+ *
+ * De aanroeper vanuit Websitebeheer (buiten dit repo, zie website-indexnow.ts
+ * daar) hanteert zelf een timeout van 8000ms op de VOLLEDIGE round-trip
+ * (netwerk + secretcheck + deze aanroep + antwoordnetwerk). Deze waarde moet
+ * daarom aantoonbaar korter zijn dan die 8000ms, met marge voor die overige
+ * stappen - niet gelijk of hoger, anders wint de aanroeper's timeout bijna
+ * altijd van deze interne timeout (exact de eerder geconstateerde race).
+ * 5000ms laat >2,5s marge over voor de rest van de round-trip.
+ */
+const REQUEST_TIMEOUT_MS = 5000;
 
 export type IndexNowBatchResult = { batchSize: number; ok: boolean; status?: number; error?: string };
 export type IndexNowSubmissionResult = { requested: number; submitted: number; rejected: number; batches: IndexNowBatchResult[] };
