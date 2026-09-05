@@ -1,13 +1,13 @@
 // INDEXNOW — begrensde bodylees-helper voor POST /api/indexnow/submit.
 //
-// Bewezen productie-oorzaak (zie de tijdelijke indexnow_trace-instrumentatie
-// in route.ts): `await request.json()` kan in deze Vercel Node-runtime
-// blijven hangen totdat het platform de Lambda na 300 seconden hard
-// afbreekt (HTTP 504) - 3/3 live metingen kwamen nooit voorbij
-// `body_read_start`. De vermoedelijke oorzaak zit in hoe de binnenkomende
-// body als streaming `ReadableStream` wordt aangeboden (`Readable.toWeb(req)`
-// in het door vinext gegenereerde `api/handler.mjs`), niet in de JSON-
-// parsing zelf.
+// Bewezen productie-oorzaak (meerdere first-party diagnoserondes, inmiddels
+// structureel gefixt in api/handler.mjs): `await request.json()` kon in deze
+// Vercel Node-runtime blijven hangen totdat het platform de Lambda na 300
+// seconden hard afbreekt (HTTP 504) - de oorzaak zat in hoe de binnenkomende
+// body als streaming `ReadableStream` werd aangeboden (`Readable.toWeb(req)`
+// in `api/handler.mjs`, sindsdien vervangen door volledige buffering), niet
+// in de JSON-parsing zelf. Deze timeout blijft desondanks als veiligheidsnet
+// staan.
 //
 // BELANGRIJKE ONTWERPKEUZE (empirisch bewezen, niet aangenomen): een simpele
 // `Promise.race([request.json(), timeoutPromise])` lost het probleem NIET

@@ -16,7 +16,6 @@
 import { assertServerOnly } from "./server-only";
 import { site } from "../../config/site";
 import { isDisallowedPath } from "../../config/crawl-policy";
-import type { IndexNowTraceEvent } from "./indexnow-trace";
 
 /**
  * Standaard IndexNow-sleutel, gecommit als `public/<KEY>.txt` (zie dat
@@ -129,13 +128,7 @@ function chunk<T>(items: readonly T[], size: number): T[][] {
  * fout (netwerk, timeout, non-2xx) wordt hier opgevangen en als resultaat
  * teruggegeven, niet als exception.
  */
-export async function submitToIndexNow(
-  candidateUrls: readonly string[],
-  // Optionele diagnose-tracer (zie indexnow-trace.ts) - tijdelijk, alleen
-  // voor deze diagnoserun. Puur additief: zonder deze parameter (bestaande
-  // aanroepers) verandert er niets aan het gedrag.
-  options?: Readonly<{ trace?: IndexNowTraceEvent }>,
-): Promise<IndexNowSubmissionResult> {
+export async function submitToIndexNow(candidateUrls: readonly string[]): Promise<IndexNowSubmissionResult> {
   assertServerOnly();
   const { accepted, rejected } = partitionSubmittableUrls(candidateUrls);
 
@@ -154,17 +147,9 @@ export async function submitToIndexNow(
   const keyLocation = getIndexNowKeyLocation();
 
   const batches = chunk(accepted, MAX_URLS_PER_BATCH);
-  for (const [batchIndex, batch] of batches.entries()) {
+  for (const batch of batches) {
     const controller = new AbortController();
-    const timeout = setTimeout(() => {
-      // Apart event van het moment waarop de `fetch`-promise daadwerkelijk
-      // settled (hieronder) - als deze twee tijdstippen ver uit elkaar
-      // liggen, toont dat aan dat de externe call na `abort()` niet
-      // meteen stopt.
-      options?.trace?.("external_fetch_abort_signal_fired", { batchIndex });
-      controller.abort();
-    }, REQUEST_TIMEOUT_MS);
-    options?.trace?.("external_fetch_start", { batchIndex, batchSize: batch.length });
+    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
     try {
       const response = await fetch(INDEXNOW_ENDPOINT, {
         method: "POST",
@@ -176,14 +161,12 @@ export async function submitToIndexNow(
       const ok = response.status === 200 || response.status === 202;
       result.batches.push({ batchSize: batch.length, ok, status: response.status });
       if (ok) result.submitted += batch.length;
-      options?.trace?.("external_fetch_end", { batchIndex, status: response.status, ok });
       // Geen response-body loggen: IndexNow's foutrespons bevat geen
       // gevoelige data, maar er is ook geen enkele reden om hem te bewaren.
       if (!ok) console.error(JSON.stringify({ scope: "indexnow-submit", status: response.status, batchSize: batch.length }));
     } catch (error) {
       const message = error instanceof Error ? error.name : "unknown_error";
       result.batches.push({ batchSize: batch.length, ok: false, error: message });
-      options?.trace?.("external_fetch_error", { batchIndex, errorCategory: message });
       console.error(JSON.stringify({ scope: "indexnow-submit", error: message, batchSize: batch.length }));
     } finally {
       clearTimeout(timeout);
