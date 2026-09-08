@@ -22,6 +22,16 @@ export class TrialSignupEmailError extends Error {
 
 const validEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 
+// Zonder eigen AbortController valt een stallende Resend-aanroep terug op
+// undici's fetch()-standaard (headersTimeout/bodyTimeout = 300s) - en die
+// wordt NIET geannuleerd door withInvitationDeadline() in de aanroepende
+// route (dat racet alleen weg, het onderliggende verzoek blijft op de
+// achtergrond doorlopen en houdt de Node-event-loop tot 300s bezet, wat een
+// Vercel-functietimeout veroorzaakt in plaats van de nette foutrespons
+// hieronder). Zelfde patroon/waarde-orde als turnstile.ts (8s) en
+// supabase-admin.ts (12s) in dit project.
+const RESEND_FETCH_TIMEOUT_MS = 10_000;
+
 const DIAGNOSTIC_LOG_PREFIX = '[trial-signup-email]';
 
 // Tijdelijke diagnosepatch (productie-incident: Resend-verzending faalt
@@ -61,6 +71,8 @@ function readResendConfiguration() {
 
 async function sendViaResend(message: { from: string; replyTo: string; to: string[]; subject: string; text: string }, apiKey: string, idempotencyKey: string) {
   let response: Response;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), RESEND_FETCH_TIMEOUT_MS);
   try {
     response = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -70,6 +82,7 @@ async function sendViaResend(message: { from: string; replyTo: string; to: strin
         'idempotency-key': idempotencyKey,
       },
       body: JSON.stringify({ from: message.from, reply_to: message.replyTo, to: message.to, subject: message.subject, text: message.text }),
+      signal: controller.signal,
     });
   } catch (error) {
     logDiagnostic('fetch_failed', {
@@ -78,6 +91,8 @@ async function sendViaResend(message: { from: string; replyTo: string; to: strin
       message: error instanceof Error ? error.message.slice(0, 200) : 'Onbekende netwerkfout.',
     });
     throw new TrialSignupEmailError();
+  } finally {
+    clearTimeout(timer);
   }
 
   const data = (await response.json().catch(() => null)) as { id?: string; name?: string; message?: string } | null;
