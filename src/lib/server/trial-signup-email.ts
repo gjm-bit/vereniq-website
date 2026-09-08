@@ -10,10 +10,12 @@
 //
 // GEEN dual-provider-selectie hier (in tegenstelling tot master-beheer): dit
 // is een eigen, apart Vercel-project dat nooit namens "De Feestbende" mailt -
-// er is dus maar één config-tak nodig, het equivalent van master-beheer se
-// readGenericResendConfiguration(). Env-var-namen zijn daarom bewust
-// RESEND_GENERIC_* (i.p.v. het oude RESEND_*), zodat in Vercel dezelfde
-// bewezen waarden als master-beheer se generieke config gezet kunnen worden.
+// er is dus maar één config-tak nodig. Env-var-namen zijn bewust de kale
+// RESEND_* (niet RESEND_GENERIC_*): dat prefix bestaat in master-beheer
+// uitsluitend om binnen dát ene gedeelde project tussen twee providers te
+// kiezen (De Feestbende vs. generiek) - een keuze die hier niet bestaat.
+// Dit project heeft zijn eigen, al langer werkende RESEND_*-configuratie in
+// Production; RESEND_GENERIC_* zou daar nooit gezet zijn.
 //
 // Twee soorten mail:
 //  - 'trial_verification': fase 1, direct na de publieke aanvraag - bevat
@@ -71,20 +73,22 @@ function logDiagnostic(event: string, details: Record<string, unknown>) {
   console.error(`${DIAGNOSTIC_LOG_PREFIX} ${JSON.stringify({ event, ...details, timestamp: new Date().toISOString() })}`);
 }
 
-// Equivalent van master-beheer se readGenericResendConfiguration() - zelfde
-// env-var-namen, zelfde validatiestijl.
+// Zelfde validatiestijl als master-beheer se readResendConfiguration()/
+// readGenericResendConfiguration() - alleen de env-var-namen wijken af (zie
+// bestandscommentaar bovenaan): dit project heeft geen dual-provider-keuze,
+// dus geen RESEND_GENERIC_*-prefix nodig.
 function readResendConfiguration(): ResendConfiguration {
   assertServerOnly();
-  const apiKey = process.env.RESEND_GENERIC_API_KEY?.trim() ?? '';
-  const fromName = process.env.RESEND_GENERIC_FROM_NAME?.trim() ?? '';
-  const fromEmail = process.env.RESEND_GENERIC_FROM_EMAIL?.trim() ?? '';
-  const replyTo = process.env.RESEND_GENERIC_REPLY_TO?.trim() ?? '';
+  const apiKey = process.env.RESEND_API_KEY?.trim() ?? '';
+  const fromName = process.env.RESEND_FROM_NAME?.trim() ?? '';
+  const fromEmail = process.env.RESEND_FROM_EMAIL?.trim() ?? '';
+  const replyTo = process.env.RESEND_REPLY_TO?.trim() ?? '';
 
   const invalidFields: string[] = [];
-  if (!apiKey) invalidFields.push('RESEND_GENERIC_API_KEY');
-  if (!fromName) invalidFields.push('RESEND_GENERIC_FROM_NAME');
-  if (!validEmail(fromEmail)) invalidFields.push('RESEND_GENERIC_FROM_EMAIL');
-  if (!validEmail(replyTo)) invalidFields.push('RESEND_GENERIC_REPLY_TO');
+  if (!apiKey) invalidFields.push('RESEND_API_KEY');
+  if (!fromName) invalidFields.push('RESEND_FROM_NAME');
+  if (!validEmail(fromEmail)) invalidFields.push('RESEND_FROM_EMAIL');
+  if (!validEmail(replyTo)) invalidFields.push('RESEND_REPLY_TO');
 
   if (invalidFields.length > 0) {
     logDiagnostic('config_invalid', { category: 'configuration', invalidFields });

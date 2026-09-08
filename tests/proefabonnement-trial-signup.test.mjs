@@ -22,7 +22,7 @@ test("service_role/Resend/Turnstile-geheimen verschijnen nooit in een client-bes
   ];
   for (const path of clientFiles) {
     const source = await read(path);
-    assert.doesNotMatch(source, /SUPABASE_SERVICE_ROLE_KEY|RESEND_GENERIC_API_KEY|TURNSTILE_SECRET_KEY/, `${path} mag geen server-only geheim bevatten`);
+    assert.doesNotMatch(source, /SUPABASE_SERVICE_ROLE_KEY|RESEND_API_KEY|TURNSTILE_SECRET_KEY/, `${path} mag geen server-only geheim bevatten`);
   }
 });
 
