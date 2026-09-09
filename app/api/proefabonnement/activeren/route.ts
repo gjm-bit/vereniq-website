@@ -25,7 +25,7 @@ import {
   type GeneratedAuthLink,
 } from '@/src/lib/server/account-invitation-flow';
 import { configuredSupabaseUrl, createServerSupabaseAdminClient } from '@/src/lib/server/supabase-admin';
-import { sendTrialAdminBootstrapEmail } from '@/src/lib/server/trial-signup-email';
+import { notifyInternalTrialSignupOutcome, sendTrialAdminBootstrapEmail } from '@/src/lib/server/trial-signup-email';
 import { randomHex, sha256Hex } from '@/src/lib/server/webcrypto';
 
 export const runtime = 'nodejs';
@@ -101,6 +101,19 @@ export async function POST(request: Request) {
   // verwijzing naar beheer.meervereniging.nl, geen enkele provisioning-
   // /bootstrap-actie vanuit de browser.
   if (activatedRow.needs_review) {
+    // Interne, niet-blokkerende meldingsmail naar Meer Vereniging zelf - zie
+    // notifyInternalTrialSignupOutcome() se eigen bestandscommentaar. De
+    // .catch() hieronder is een bewuste, tweede vangnet bovenop de interne
+    // try/catches van die functie (die zelf al nooit gooit) - deze aanroep
+    // mag onder geen enkele omstandigheid de reviewstatus-respons raken.
+    await notifyInternalTrialSignupOutcome(admin, {
+      type: 'held_for_review',
+      signupId,
+      organizationName: activatedRow.organization_name,
+      contactName: activatedRow.contact_name,
+      contactEmail: activatedRow.contact_email,
+      occurredAt: new Date(),
+    }).catch(() => undefined);
     return json({ success: true, status: 'held_for_review', organizationName: activatedRow.organization_name, message: 'Je aanvraag wordt beoordeeld. Je ontvangt bericht zodra je omgeving klaarstaat.' });
   }
 
@@ -212,17 +225,33 @@ export async function POST(request: Request) {
     return json({ success: false, status: 'unexpected_failure', message: 'Je beheerdersaccount kon niet worden bevestigd. Probeer het later opnieuw.' }, 500);
   }
 
+  let emailSent = true;
   try {
     await withInvitationDeadline(
       sendTrialAdminBootstrapEmail({ recipient: contactEmail, organizationName, actionLink: actionLink as string, deliveryAttemptId: attemptId }),
       EMAIL_PROVIDER_TIMEOUT_MS,
       new AccountInvitationFlowError('trial_signup_email_provider_timeout', 'De mailprovider reageert niet op tijd.', 504, 'unknown'),
     );
-    return json({ success: true, status: 'activated', organizationName, emailSent: true });
   } catch {
     // De organisatie en het beheerderslidmaatschap zijn al onomkeerbaar
     // aangemaakt - een mislukte mail hier is een zachte fout, geen reden om
     // iets terug te draaien.
-    return json({ success: true, status: 'activated', organizationName, emailSent: false });
+    emailSent = false;
   }
+
+  // Interne, niet-blokkerende meldingsmail naar Meer Vereniging zelf - altijd
+  // proberen, ongeacht of de klantmail hierboven lukte (die twee zijn
+  // onafhankelijk). Zie notifyInternalTrialSignupOutcome() se commentaar:
+  // deze aanroep mag nooit de activatierespons raken.
+  await notifyInternalTrialSignupOutcome(admin, {
+    type: 'provisioned',
+    signupId,
+    organizationName,
+    contactName,
+    contactEmail,
+    occurredAt: new Date(),
+    organizationId,
+  }).catch(() => undefined);
+
+  return json({ success: true, status: 'activated', organizationName, emailSent });
 }

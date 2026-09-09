@@ -17,15 +17,25 @@
 // Dit project heeft zijn eigen, al langer werkende RESEND_*-configuratie in
 // Production; RESEND_GENERIC_* zou daar nooit gezet zijn.
 //
-// Twee soorten mail:
+// Drie soorten mail:
 //  - 'trial_verification': fase 1, direct na de publieke aanvraag - bevat
 //    de meervereniging.nl-activatielink (bevestigt het e-mailadres).
 //  - 'admin_bootstrap': fase 2, na succesvolle activatie - bevat de
 //    bestaande Supabase-uitnodigingslink naar de wachtwoord-instellen-flow.
+//  - interne notificatie (notifyInternalTrialSignupOutcome, geen klantmail):
+//    ná activatie, naar Meer Vereniging zelf - óf "proefomgeving automatisch
+//    aangemaakt" óf "aanvraag wacht op review" (needs_review). Bestemming is
+//    bewust RESEND_REPLY_TO: dat is al exact hetzelfde interne auditadres
+//    (info@meervereniging.nl) dat master-beheer via ONBOARDING_AUDIT_CC_EMAIL
+//    gebruikt voor dezelfde soort operationele meldingen - geen nieuwe
+//    env-var, geen nieuwe provider. Faalt deze mail (of de bijbehorende
+//    audit_events-log), dan wordt dat uitsluitend gelogd: deze functie gooit
+//    NOOIT een fout, zodat een mislukte interne notificatie de provisioning-
+//    of reviewflow nooit kan blokkeren.
 
 import { Resend } from 'resend';
 
-import { assertServerOnly } from './server-only';
+import { assertServerOnly } from './server-only.ts';
 
 export class TrialSignupEmailError extends Error {
   constructor() {
@@ -191,5 +201,95 @@ export async function sendTrialAdminBootstrapEmail(input: { recipient: string; o
   } catch {
     audit('admin_bootstrap', 'failed');
     throw new TrialSignupEmailError();
+  }
+}
+
+const MASTER_BEHEER_ORIGIN = 'https://beheer.meervereniging.nl';
+
+// Minimale, zelf-gedefinieerde vorm i.p.v. de volledige supabase-js-clienttype
+// te importeren - dezelfde aanpak als ResendSend hierboven: alleen wat deze
+// functie daadwerkelijk gebruikt, makkelijk te injecteren in tests.
+type AuditEventsAdminClient = Readonly<{
+  from: (table: string) => { insert: (row: Record<string, unknown>) => PromiseLike<{ error: { message?: string } | null }> };
+}>;
+
+type InternalNotificationType = 'provisioned' | 'held_for_review';
+
+type InternalNotificationInput = Readonly<{
+  type: InternalNotificationType;
+  signupId: string;
+  organizationName: string;
+  contactName: string;
+  contactEmail: string;
+  occurredAt: Date;
+  // Alleen bekend/relevant bij 'provisioned' - 'held_for_review' heeft nog
+  // geen organisatie (die ontstaat pas na operator-goedkeuring).
+  organizationId?: string;
+}>;
+
+function formatDutchDateTime(date: Date): string {
+  return new Intl.DateTimeFormat('nl-NL', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Europe/Amsterdam' }).format(date);
+}
+
+// Zie het bestandscommentaar bovenaan voor de volledige uitleg. `send` en
+// `admin` zijn injecteerbaar voor tests, zelfde aanpak als sendViaResend se
+// `send?`-param.
+export async function notifyInternalTrialSignupOutcome(
+  admin: AuditEventsAdminClient,
+  input: InternalNotificationInput,
+  send?: ResendSend,
+): Promise<void> {
+  let messageId: string | null = null;
+  let sendFailed = false;
+
+  try {
+    const configuration = readResendConfiguration();
+    const occurred = formatDutchDateTime(input.occurredAt);
+    const subject = input.type === 'provisioned'
+      ? `Nieuw proefabonnement gestart – ${input.organizationName}`
+      : `Proefaanvraag wacht op beoordeling – ${input.organizationName}`;
+    const text = (input.type === 'provisioned'
+      ? [
+        `Organisatie: ${input.organizationName}`,
+        `Aanvrager: ${input.contactName}`,
+        `E-mailadres: ${input.contactEmail}`,
+        `Datum/tijd: ${occurred}`,
+        'Status: proefomgeving automatisch aangemaakt.',
+        ...(input.organizationId ? ['', `Bekijk de organisatie: ${MASTER_BEHEER_ORIGIN}/organizations/${input.organizationId}`] : []),
+      ]
+      : [
+        `Organisatie: ${input.organizationName}`,
+        `Aanvrager: ${input.contactName}`,
+        `E-mailadres: ${input.contactEmail}`,
+        `Datum/tijd: ${occurred}`,
+        'Reden: mogelijke overeenkomst met een bestaande organisatie.',
+        '',
+        `Bekijk de reviewwachtrij: ${MASTER_BEHEER_ORIGIN}/organizations/review`,
+      ]
+    ).join('\n');
+
+    const result = await sendViaResend(
+      { from: configuration.from, replyTo: configuration.replyTo, to: [configuration.replyTo], subject, text },
+      configuration.apiKey,
+      `trial-signup-internal-notification-${input.type}-${input.signupId}`,
+      send,
+    );
+    messageId = result.messageId;
+  } catch {
+    sendFailed = true;
+    logDiagnostic('internal_notification_failed', { category: 'internal_notification', notificationType: input.type });
+  }
+
+  try {
+    await admin.from('audit_events').insert({
+      action: sendFailed ? 'platform.trial_signup.notification_failed' : 'platform.trial_signup.notification_sent',
+      entity_type: 'public_trial_signups',
+      entity_id: input.signupId,
+      organization_id: input.organizationId ?? null,
+      outcome: sendFailed ? 'failed' : 'succeeded',
+      metadata: { channel: 'email', notification_type: input.type, message_id: messageId },
+    });
+  } catch {
+    logDiagnostic('internal_notification_audit_failed', { category: 'internal_notification', notificationType: input.type });
   }
 }
