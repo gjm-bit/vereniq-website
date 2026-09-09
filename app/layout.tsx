@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { WebsiteStatsBeacon } from "@/src/components/website-stats-beacon";
 import "./globals.css";
 import "./dark-brand-canvas.css";
 import "./dark-premium-v2.css";
@@ -38,5 +39,5 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     { "@type": "WebSite", name: "Meer Vereniging", url },
     { "@type": "SoftwareApplication", name: "Meer Vereniging", applicationCategory: "BusinessApplication", operatingSystem: "Web", description: "Eén compleet platform voor verenigingen met leden, teams, vrijwilligers en commissies." },
   ] };
-  return <html lang="nl"><body>{children}<script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }} /></body></html>;
+  return <html lang="nl"><body>{children}<WebsiteStatsBeacon /><script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }} /></body></html>;
 }
