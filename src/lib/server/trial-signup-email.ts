@@ -35,9 +35,19 @@
 //    audit_events-log), dan wordt dat uitsluitend gelogd: deze functie gooit
 //    NOOIT een fout, zodat een mislukte interne notificatie de provisioning-
 //    of reviewflow nooit kan blokkeren.
+//
+// Alle vier de mails (2 klant + 2 intern) hergebruiken dezelfde HTML-laag
+// (logo/header/kleuren/typografie/CTA-knop/footer): meer-vereniging-email-
+// template.ts - een DELIBERATE DUPLICATE van master-beheer se al-bewezen
+// meer-vereniging-email-template.ts (zelfde reden als elders in dit
+// bestand: apart Vercel-project zonder gedeelde broncode). Geen nieuwe/
+// tweede designsysteem - `text` blijft altijd de brontekst; `html` is een
+// pure afgeleide daarvan via renderMeerVerenigingEmailHtml(), nooit los
+// herschreven.
 
 import { Resend } from 'resend';
 
+import { meerVerenigingEmailLogoAttachment, renderMeerVerenigingEmailHtml } from './meer-vereniging-email-template.ts';
 import { assertServerOnly } from './server-only.ts';
 
 export class TrialSignupEmailError extends Error {
@@ -47,8 +57,26 @@ export class TrialSignupEmailError extends Error {
   }
 }
 
+// Zelfde velden/vorm als master-beheer se ResendAttachment
+// (resend-invite-email.ts) - overgenomen door meer-vereniging-email-
+// template.ts voor het inline logo (cid:).
+export type ResendAttachment = Readonly<{
+  content: string;
+  filename: string;
+  contentType: string;
+  contentId: string;
+}>;
+
 type ResendConfiguration = Readonly<{ apiKey: string; from: string; replyTo: string }>;
-type ResendMessage = Readonly<{ from: string; replyTo: string; to: string[]; subject: string; text: string }>;
+type ResendMessage = Readonly<{
+  from: string;
+  replyTo: string;
+  to: string[];
+  subject: string;
+  text: string;
+  html?: string;
+  attachments?: ResendAttachment[];
+}>;
 type ResendSend = (
   message: ResendMessage,
   options: { idempotencyKey: string; signal?: AbortSignal },
@@ -122,7 +150,7 @@ function audit(emailType: 'trial_verification' | 'admin_bootstrap', result: 'sen
 // injecteerbaar voor tests (zelfde aanpak als master-beheer's `send?`-param).
 async function sendViaResend(message: ResendMessage, apiKey: string, idempotencyKey: string, send?: ResendSend) {
   const transport: ResendSend = send ?? ((msg, options) => new Resend(apiKey).emails.send(
-    { from: msg.from, replyTo: msg.replyTo, to: msg.to, subject: msg.subject, text: msg.text },
+    { from: msg.from, replyTo: msg.replyTo, to: msg.to, subject: msg.subject, text: msg.text, html: msg.html, attachments: msg.attachments },
     options,
   ));
 
@@ -158,18 +186,27 @@ export async function sendTrialSignupVerificationEmail(input: { recipient: strin
   if (!validEmail(input.recipient)) throw new TrialSignupEmailError();
   try {
     const configuration = readResendConfiguration();
+    const subject = 'Nog één stap en je proefomgeving staat klaar';
+    const title = 'Welkom bij Meer Vereniging';
+    // Belooft bewust NIET dat de omgeving altijd direct/gegarandeerd
+    // ontstaat na bevestiging - bij een sterk gelijkende organisatienaam
+    // wordt een aanvraag eerst door een Master Beheer-operator beoordeeld
+    // (needs_review), zie activeren/route.ts. "Om verder te gaan" dekt
+    // beide paden correct, zonder een onjuiste garantie te geven.
     const text = [
       `Je hebt een proefabonnement aangevraagd voor "${input.organizationName}".`,
       '',
-      'Bevestig je e-mailadres via deze link om je proefomgeving te activeren:',
+      'Bevestig je e-mailadres om verder te gaan:',
       input.activationLink,
       '',
       'Deze link is 48 uur geldig.',
       '',
       'Heb je dit niet aangevraagd? Negeer deze e-mail, er gebeurt dan niets.',
     ].join('\n');
+    const primaryCta = { label: 'Bevestig mijn e-mailadres', url: input.activationLink };
+    const html = renderMeerVerenigingEmailHtml({ preheader: text.split('\n')[0] ?? subject, title, bodyText: text, primaryCta });
     const result = await sendViaResend(
-      { from: configuration.from, replyTo: configuration.replyTo, to: [input.recipient], subject: 'Bevestig je proefabonnement — Meer Vereniging', text },
+      { from: configuration.from, replyTo: configuration.replyTo, to: [input.recipient], subject, text, html, attachments: [meerVerenigingEmailLogoAttachment()] },
       configuration.apiKey,
       `trial-signup-verification-${input.signupId}`,
     );
@@ -186,6 +223,11 @@ export async function sendTrialAdminBootstrapEmail(input: { recipient: string; o
   if (!validEmail(input.recipient)) throw new TrialSignupEmailError();
   try {
     const configuration = readResendConfiguration();
+    const subject = `Je proefomgeving voor ${input.organizationName} staat klaar`;
+    // Inhoud/functionaliteit ongewijzigd t.o.v. vóór de HTML-laag - alleen
+    // de bestaande, al bewezen accountlink/tekst, nu ook in de gedeelde
+    // Meer Vereniging-mail-layout. Geen wijziging aan token-/auth-/
+    // provisioninglogica.
     const text = [
       `Je proefomgeving voor "${input.organizationName}" staat klaar.`,
       '',
@@ -194,8 +236,10 @@ export async function sendTrialAdminBootstrapEmail(input: { recipient: string; o
       '',
       'Heb je dit niet verwacht? Negeer deze e-mail.',
     ].join('\n');
+    const primaryCta = { label: 'Wachtwoord instellen', url: input.actionLink };
+    const html = renderMeerVerenigingEmailHtml({ preheader: text.split('\n')[0] ?? subject, title: subject, bodyText: text, primaryCta });
     const result = await sendViaResend(
-      { from: configuration.from, replyTo: configuration.replyTo, to: [input.recipient], subject: `Je proefomgeving voor ${input.organizationName} staat klaar`, text },
+      { from: configuration.from, replyTo: configuration.replyTo, to: [input.recipient], subject, text, html, attachments: [meerVerenigingEmailLogoAttachment()] },
       configuration.apiKey,
       `trial-admin-bootstrap-${input.deliveryAttemptId}`,
     );
@@ -272,6 +316,8 @@ export async function notifyInternalTrialSignupOutcome(
       const subject = input.type === 'provisioned'
         ? `Nieuw proefabonnement gestart – ${input.organizationName}`
         : `Proefaanvraag wacht op beoordeling – ${input.organizationName}`;
+      const organizationUrl = input.organizationId ? `${MASTER_BEHEER_ORIGIN}/organizations/${input.organizationId}` : null;
+      const reviewQueueUrl = `${MASTER_BEHEER_ORIGIN}/organizations/review`;
       const text = (input.type === 'provisioned'
         ? [
           `Organisatie: ${input.organizationName}`,
@@ -279,7 +325,7 @@ export async function notifyInternalTrialSignupOutcome(
           `E-mailadres: ${input.contactEmail}`,
           `Datum/tijd: ${occurred}`,
           'Status: proefomgeving automatisch aangemaakt.',
-          ...(input.organizationId ? ['', `Bekijk de organisatie: ${MASTER_BEHEER_ORIGIN}/organizations/${input.organizationId}`] : []),
+          ...(organizationUrl ? ['', `Bekijk de organisatie: ${organizationUrl}`] : []),
         ]
         : [
           `Organisatie: ${input.organizationName}`,
@@ -288,12 +334,16 @@ export async function notifyInternalTrialSignupOutcome(
           `Datum/tijd: ${occurred}`,
           'Reden: mogelijke overeenkomst met een bestaande organisatie.',
           '',
-          `Bekijk de reviewwachtrij: ${MASTER_BEHEER_ORIGIN}/organizations/review`,
+          `Bekijk de reviewwachtrij: ${reviewQueueUrl}`,
         ]
       ).join('\n');
+      const primaryCta = input.type === 'provisioned'
+        ? (organizationUrl ? { label: 'Bekijk organisatie', url: organizationUrl } : undefined)
+        : { label: 'Beoordeel aanvraag', url: reviewQueueUrl };
+      const html = renderMeerVerenigingEmailHtml({ preheader: text.split('\n')[0] ?? subject, title: subject, bodyText: text, primaryCta });
 
       const result = await sendViaResend(
-        { from: configuration.from, replyTo: recipient, to: [recipient], subject, text },
+        { from: configuration.from, replyTo: recipient, to: [recipient], subject, text, html, attachments: [meerVerenigingEmailLogoAttachment()] },
         configuration.apiKey,
         `trial-signup-internal-notification-${input.type}-${input.signupId}`,
         send,
