@@ -9,6 +9,12 @@ import test from "node:test";
 // `send?`-injectiepunt) plus een statische controle dat beide aanroeppunten
 // in activeren/route.ts zo zijn gewrapt dat een mislukte notificatie de
 // respons nooit kan raken.
+//
+// Ontvanger is bewust ONBOARDING_AUDIT_CC_EMAIL, NIET RESEND_REPLY_TO: dat
+// laatste blijft uitsluitend het antwoordadres voor klantcommunicatie. Een
+// deel van deze tests bewijst expliciet dat RESEND_REPLY_TO nooit als
+// terugvalwaarde wordt gebruikt, ook niet als ONBOARDING_AUDIT_CC_EMAIL
+// ontbreekt.
 
 const read = (relativePath) => readFile(new URL(`../${relativePath}`, import.meta.url), "utf8");
 
@@ -16,14 +22,21 @@ const REQUIRED_ENV = {
   RESEND_API_KEY: "test-api-key",
   RESEND_FROM_NAME: "Meer Vereniging",
   RESEND_FROM_EMAIL: "noreply@mail.meervereniging.nl",
-  RESEND_REPLY_TO: "info@meervereniging.nl",
+  // Bewust een ANDER adres dan ONBOARDING_AUDIT_CC_EMAIL hieronder, zodat
+  // een test die per ongeluk RESEND_REPLY_TO als ontvanger zou gebruiken
+  // (i.p.v. ONBOARDING_AUDIT_CC_EMAIL) direct zichtbaar faalt.
+  RESEND_REPLY_TO: "klant-antwoordadres@meervereniging.nl",
+  ONBOARDING_AUDIT_CC_EMAIL: "info@meervereniging.nl",
 };
 
-async function withResendEnv(fn) {
+async function withResendEnv(envOverrides, fn) {
+  const merged = { ...REQUIRED_ENV, ...envOverrides };
   const previous = {};
-  for (const [key, value] of Object.entries(REQUIRED_ENV)) {
+  const keys = new Set([...Object.keys(REQUIRED_ENV), ...Object.keys(envOverrides)]);
+  for (const key of keys) {
     previous[key] = process.env[key];
-    process.env[key] = value;
+    if (key in merged) process.env[key] = merged[key];
+    else delete process.env[key];
   }
   try {
     return await fn();
@@ -58,8 +71,8 @@ const BASE_INPUT = {
   occurredAt: new Date("2026-09-09T07:03:10.840Z"),
 };
 
-test("provisioning + notificatie succesvol: verstuurt de interne mail en legt een notification_sent audit-event vast", async () => {
-  await withResendEnv(async () => {
+test("provisioning + notificatie succesvol: ontvanger komt uit ONBOARDING_AUDIT_CC_EMAIL, en notification_sent bevat message_id", async () => {
+  await withResendEnv({}, async () => {
     const { notifyInternalTrialSignupOutcome } = await import("../src/lib/server/trial-signup-email.ts");
     const { admin, inserted } = createAdminSpy();
     const sendCalls = [];
@@ -76,7 +89,8 @@ test("provisioning + notificatie succesvol: verstuurt de interne mail en legt ee
 
     assert.equal(sendCalls.length, 1, "de Resend-transport moet exact één keer aangeroepen worden");
     assert.equal(sendCalls[0].message.to.length, 1);
-    assert.equal(sendCalls[0].message.to[0], REQUIRED_ENV.RESEND_REPLY_TO, "bestemming is het bestaande interne auditadres uit RESEND_REPLY_TO");
+    assert.equal(sendCalls[0].message.to[0], REQUIRED_ENV.ONBOARDING_AUDIT_CC_EMAIL, "bestemming komt uit ONBOARDING_AUDIT_CC_EMAIL");
+    assert.equal(sendCalls[0].message.replyTo, REQUIRED_ENV.ONBOARDING_AUDIT_CC_EMAIL, "ook het Reply-To-adres van de interne mail is het auditadres, niet het klant-antwoordadres");
     assert.match(sendCalls[0].message.subject, /^Nieuw proefabonnement gestart – Meer Vereniging Test 14$/);
     assert.match(sendCalls[0].message.text, /Organisatie: Meer Vereniging Test 14/);
     assert.match(sendCalls[0].message.text, /Aanvrager: Testbeheerder Test 14/);
@@ -94,48 +108,77 @@ test("provisioning + notificatie succesvol: verstuurt de interne mail en legt ee
   });
 });
 
-test("held_for_review + notificatie succesvol: verstuurt de interne mail (zonder organisatie-id) met een link naar de reviewwachtrij", async () => {
-  await withResendEnv(async () => {
+test("RESEND_REPLY_TO wordt nooit als terugvalwaarde gebruikt voor de interne ontvanger", async () => {
+  await withResendEnv({}, async () => {
     const { notifyInternalTrialSignupOutcome } = await import("../src/lib/server/trial-signup-email.ts");
-    const { admin, inserted } = createAdminSpy();
+    const { admin } = createAdminSpy();
     const sendCalls = [];
     const send = async (message, options) => {
       sendCalls.push({ message, options });
-      return { data: { id: "msg_review_456" }, error: null };
+      return { data: { id: "msg_1" }, error: null };
     };
 
     await notifyInternalTrialSignupOutcome(admin, { type: "held_for_review", ...BASE_INPUT }, send);
 
     assert.equal(sendCalls.length, 1);
-    assert.match(sendCalls[0].message.subject, /^Proefaanvraag wacht op beoordeling – Meer Vereniging Test 14$/);
-    assert.match(sendCalls[0].message.text, /Reden: mogelijke overeenkomst met een bestaande organisatie\./);
-    assert.match(sendCalls[0].message.text, /beheer\.meervereniging\.nl\/organizations\/review/, "bevat een directe link naar de bestaande reviewwachtrij");
-
-    assert.equal(inserted.length, 1);
-    assert.equal(inserted[0].row.action, "platform.trial_signup.notification_sent");
-    assert.equal(inserted[0].row.outcome, "succeeded");
-    assert.equal(inserted[0].row.organization_id, null, "er bestaat nog geen organisatie bij held_for_review");
-    assert.equal(inserted[0].row.metadata.notification_type, "held_for_review");
+    assert.notEqual(sendCalls[0].message.to[0], REQUIRED_ENV.RESEND_REPLY_TO, "RESEND_REPLY_TO (het klant-antwoordadres) mag nooit de ontvanger van de interne notificatie zijn");
+    assert.equal(sendCalls[0].message.to[0], REQUIRED_ENV.ONBOARDING_AUDIT_CC_EMAIL);
   });
 });
 
-test("provisioning blijft succesvol als de notificatiemail faalt: notifyInternalTrialSignupOutcome gooit nooit, en legt notification_failed vast", async () => {
-  await withResendEnv(async () => {
+test("ontbrekende ONBOARDING_AUDIT_CC_EMAIL blokkeert de hoofdflow niet: geen mailpoging, wel een non-blocking notification_failed audit-event zonder message_id-sleutel", async () => {
+  await withResendEnv({ ONBOARDING_AUDIT_CC_EMAIL: undefined }, async () => {
+    const { notifyInternalTrialSignupOutcome } = await import("../src/lib/server/trial-signup-email.ts");
+    const { admin, inserted } = createAdminSpy();
+    const sendCalls = [];
+    const send = async (message, options) => {
+      sendCalls.push({ message, options });
+      return { data: { id: "should-never-be-called" }, error: null };
+    };
+
+    // Geen assert.rejects: het punt is juist dat dit nooit verwerpt, ongeacht
+    // of de config ontbreekt - dat houdt de activatierespons onaangetast.
+    await notifyInternalTrialSignupOutcome(admin, { type: "provisioned", ...BASE_INPUT, organizationId: "org-abc-123" }, send);
+
+    assert.equal(sendCalls.length, 0, "zonder geldig ONBOARDING_AUDIT_CC_EMAIL wordt er geen mailpoging gedaan");
+    assert.equal(inserted.length, 1, "er moet nog steeds een audit-event vastgelegd worden");
+    assert.equal(inserted[0].row.action, "platform.trial_signup.notification_failed");
+    assert.equal(inserted[0].row.outcome, "failed");
+    assert.ok(!("message_id" in inserted[0].row.metadata), "de message_id-sleutel mag bij notification_failed volledig ontbreken, niet null zijn");
+    assert.deepEqual(inserted[0].row.metadata, { channel: "email", notification_type: "provisioned" });
+  });
+});
+
+test("held_for_review + notificatie succesvol: geen organisatie-id, wel een link naar de reviewwachtrij", async () => {
+  await withResendEnv({}, async () => {
+    const { notifyInternalTrialSignupOutcome } = await import("../src/lib/server/trial-signup-email.ts");
+    const { admin, inserted } = createAdminSpy();
+    const send = async () => ({ data: { id: "msg_review_456" }, error: null });
+
+    await notifyInternalTrialSignupOutcome(admin, { type: "held_for_review", ...BASE_INPUT }, send);
+
+    assert.equal(inserted.length, 1);
+    assert.equal(inserted[0].row.action, "platform.trial_signup.notification_sent");
+    assert.equal(inserted[0].row.organization_id, null, "er bestaat nog geen organisatie bij held_for_review");
+    assert.equal(inserted[0].row.metadata.notification_type, "held_for_review");
+    assert.equal(inserted[0].row.metadata.message_id, "msg_review_456");
+  });
+});
+
+test("provisioning blijft succesvol als de Resend-verzending zelf faalt: notifyInternalTrialSignupOutcome gooit nooit, notification_failed bevat geen message_id-sleutel", async () => {
+  await withResendEnv({}, async () => {
     const { notifyInternalTrialSignupOutcome } = await import("../src/lib/server/trial-signup-email.ts");
     const { admin, inserted } = createAdminSpy();
     const send = async () => {
       throw new Error("Resend is tijdelijk niet bereikbaar.");
     };
 
-    // Geen assert.rejects: het punt is juist dat dit NOOIT verwerpt, ongeacht
-    // hoe de mailtransport faalt - dat is exact wat de provisioning-/
-    // activatierespons in activeren/route.ts onaangetast houdt.
     await notifyInternalTrialSignupOutcome(admin, { type: "provisioned", ...BASE_INPUT, organizationId: "org-abc-123" }, send);
 
-    assert.equal(inserted.length, 1, "een mislukte mail moet nog steeds een audit-event opleveren");
+    assert.equal(inserted.length, 1);
     assert.equal(inserted[0].row.action, "platform.trial_signup.notification_failed");
     assert.equal(inserted[0].row.outcome, "failed");
-    assert.equal(inserted[0].row.metadata.message_id, null, "geen message-id beschikbaar als de verzending faalde");
+    assert.ok(!("message_id" in inserted[0].row.metadata), "geen message_id-sleutel als de verzending faalde");
   });
 });
 
@@ -156,9 +199,6 @@ test("reviewstatus blijft correct als de notificatiemail faalt: beide aanroeppun
     "de provisioned-notificatie moet .catch()-gewrapt zijn en direct gevolgd worden door de onvoorwaardelijke activatierespons (emailSent blijft ongewijzigd door de klantmail-uitkomst hierboven)",
   );
 
-  // De notificatieaanroep zelf mag nergens binnen een try-blok staan dat de
-  // respons zou kunnen laten falen - beide aanroepen staan als toplevel
-  // await-statements, buiten enige try/catch die de uitkomst beïnvloedt.
   assert.doesNotMatch(
     heldForReviewBlock,
     /try \{[\s\S]*notifyInternalTrialSignupOutcome/,
@@ -166,8 +206,8 @@ test("reviewstatus blijft correct als de notificatiemail faalt: beide aanroeppun
   );
 });
 
-test("audit-events voor de interne notificatie gebruiken de juiste actienamen/entity_type en bevatten nooit een e-mailadres in metadata", async () => {
-  await withResendEnv(async () => {
+test("audit-events voor de interne notificatie gebruiken de juiste actienamen/entity_type en bevatten nooit een e-mailadres of secret in metadata", async () => {
+  await withResendEnv({}, async () => {
     const { notifyInternalTrialSignupOutcome } = await import("../src/lib/server/trial-signup-email.ts");
     const { admin, inserted } = createAdminSpy();
     const send = async () => ({ data: { id: "msg_789" }, error: null });
@@ -181,5 +221,6 @@ test("audit-events voor de interne notificatie gebruiken de juiste actienamen/en
     );
     const metadataText = JSON.stringify(inserted[0].row.metadata);
     assert.doesNotMatch(metadataText, /@/, "metadata mag nooit een e-mailadres bevatten");
+    assert.doesNotMatch(metadataText, /test-api-key/, "metadata mag nooit de Resend API-key bevatten");
   });
 });

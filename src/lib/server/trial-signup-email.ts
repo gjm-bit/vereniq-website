@@ -25,10 +25,13 @@
 //  - interne notificatie (notifyInternalTrialSignupOutcome, geen klantmail):
 //    ná activatie, naar Meer Vereniging zelf - óf "proefomgeving automatisch
 //    aangemaakt" óf "aanvraag wacht op review" (needs_review). Bestemming is
-//    bewust RESEND_REPLY_TO: dat is al exact hetzelfde interne auditadres
-//    (info@meervereniging.nl) dat master-beheer via ONBOARDING_AUDIT_CC_EMAIL
-//    gebruikt voor dezelfde soort operationele meldingen - geen nieuwe
-//    env-var, geen nieuwe provider. Faalt deze mail (of de bijbehorende
+//    ONBOARDING_AUDIT_CC_EMAIL - een eigen, apart interne-auditadres, BEWUST
+//    NIET RESEND_REPLY_TO (dat blijft uitsluitend het antwoordadres voor
+//    klantcommunicatie, ook al is de waarde vandaag toevallig gelijk aan
+//    info@meervereniging.nl). Zelfde naam/waarde/soort meldingen als
+//    master-beheer se ONBOARDING_AUDIT_CC_EMAIL - eigen env-var in dit
+//    project (Vercel-projecten delen geen env-vars), geen nieuwe provider.
+//    Ontbreekt/is ongeldig die var, of faalt de mail (of de bijbehorende
 //    audit_events-log), dan wordt dat uitsluitend gelogd: deze functie gooit
 //    NOOIT een fout, zodat een mislukte interne notificatie de provisioning-
 //    of reviewflow nooit kan blokkeren.
@@ -231,53 +234,75 @@ function formatDutchDateTime(date: Date): string {
   return new Intl.DateTimeFormat('nl-NL', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Europe/Amsterdam' }).format(date);
 }
 
+// Apart, eigen adres t.o.v. readResendConfiguration() se replyTo (RESEND_
+// REPLY_TO): dat laatste is uitsluitend het antwoordadres voor klant-
+// communicatie en mag semantisch nooit hergebruikt worden als intern
+// operationeel auditadres, ook al zijn de waarden vandaag toevallig gelijk.
+// Zelfde naam/waarde als master-beheer se ONBOARDING_AUDIT_CC_EMAIL (zie
+// master-beheer/api/_lib/resend-invite-email.ts) - eigen env-var in dit
+// project omdat Vercel-projecten geen env-vars delen, geen nieuwe provider
+// of architectuur.
+function readOnboardingAuditCcEmail(): string | null {
+  const value = process.env.ONBOARDING_AUDIT_CC_EMAIL?.trim() ?? '';
+  return validEmail(value) ? value : null;
+}
+
 // Zie het bestandscommentaar bovenaan voor de volledige uitleg. `send` en
 // `admin` zijn injecteerbaar voor tests, zelfde aanpak als sendViaResend se
-// `send?`-param.
+// `send?`-param. Ontbreekt/is ongeldig ONBOARDING_AUDIT_CC_EMAIL, dan wordt
+// er bewust niets verzonden (fail-safe, zelfde conventie als elders in dit
+// project) - alleen gelogd en als notification_failed geaudit, nooit de
+// hoofdflow blokkerend.
 export async function notifyInternalTrialSignupOutcome(
   admin: AuditEventsAdminClient,
   input: InternalNotificationInput,
   send?: ResendSend,
 ): Promise<void> {
+  const recipient = readOnboardingAuditCcEmail();
   let messageId: string | null = null;
   let sendFailed = false;
 
-  try {
-    const configuration = readResendConfiguration();
-    const occurred = formatDutchDateTime(input.occurredAt);
-    const subject = input.type === 'provisioned'
-      ? `Nieuw proefabonnement gestart – ${input.organizationName}`
-      : `Proefaanvraag wacht op beoordeling – ${input.organizationName}`;
-    const text = (input.type === 'provisioned'
-      ? [
-        `Organisatie: ${input.organizationName}`,
-        `Aanvrager: ${input.contactName}`,
-        `E-mailadres: ${input.contactEmail}`,
-        `Datum/tijd: ${occurred}`,
-        'Status: proefomgeving automatisch aangemaakt.',
-        ...(input.organizationId ? ['', `Bekijk de organisatie: ${MASTER_BEHEER_ORIGIN}/organizations/${input.organizationId}`] : []),
-      ]
-      : [
-        `Organisatie: ${input.organizationName}`,
-        `Aanvrager: ${input.contactName}`,
-        `E-mailadres: ${input.contactEmail}`,
-        `Datum/tijd: ${occurred}`,
-        'Reden: mogelijke overeenkomst met een bestaande organisatie.',
-        '',
-        `Bekijk de reviewwachtrij: ${MASTER_BEHEER_ORIGIN}/organizations/review`,
-      ]
-    ).join('\n');
-
-    const result = await sendViaResend(
-      { from: configuration.from, replyTo: configuration.replyTo, to: [configuration.replyTo], subject, text },
-      configuration.apiKey,
-      `trial-signup-internal-notification-${input.type}-${input.signupId}`,
-      send,
-    );
-    messageId = result.messageId;
-  } catch {
+  if (!recipient) {
     sendFailed = true;
-    logDiagnostic('internal_notification_failed', { category: 'internal_notification', notificationType: input.type });
+    logDiagnostic('internal_notification_recipient_missing', { category: 'internal_notification', notificationType: input.type });
+  } else {
+    try {
+      const configuration = readResendConfiguration();
+      const occurred = formatDutchDateTime(input.occurredAt);
+      const subject = input.type === 'provisioned'
+        ? `Nieuw proefabonnement gestart – ${input.organizationName}`
+        : `Proefaanvraag wacht op beoordeling – ${input.organizationName}`;
+      const text = (input.type === 'provisioned'
+        ? [
+          `Organisatie: ${input.organizationName}`,
+          `Aanvrager: ${input.contactName}`,
+          `E-mailadres: ${input.contactEmail}`,
+          `Datum/tijd: ${occurred}`,
+          'Status: proefomgeving automatisch aangemaakt.',
+          ...(input.organizationId ? ['', `Bekijk de organisatie: ${MASTER_BEHEER_ORIGIN}/organizations/${input.organizationId}`] : []),
+        ]
+        : [
+          `Organisatie: ${input.organizationName}`,
+          `Aanvrager: ${input.contactName}`,
+          `E-mailadres: ${input.contactEmail}`,
+          `Datum/tijd: ${occurred}`,
+          'Reden: mogelijke overeenkomst met een bestaande organisatie.',
+          '',
+          `Bekijk de reviewwachtrij: ${MASTER_BEHEER_ORIGIN}/organizations/review`,
+        ]
+      ).join('\n');
+
+      const result = await sendViaResend(
+        { from: configuration.from, replyTo: recipient, to: [recipient], subject, text },
+        configuration.apiKey,
+        `trial-signup-internal-notification-${input.type}-${input.signupId}`,
+        send,
+      );
+      messageId = result.messageId;
+    } catch {
+      sendFailed = true;
+      logDiagnostic('internal_notification_failed', { category: 'internal_notification', notificationType: input.type });
+    }
   }
 
   try {
@@ -287,7 +312,9 @@ export async function notifyInternalTrialSignupOutcome(
       entity_id: input.signupId,
       organization_id: input.organizationId ?? null,
       outcome: sendFailed ? 'failed' : 'succeeded',
-      metadata: { channel: 'email', notification_type: input.type, message_id: messageId },
+      metadata: sendFailed
+        ? { channel: 'email', notification_type: input.type }
+        : { channel: 'email', notification_type: input.type, message_id: messageId },
     });
   } catch {
     logDiagnostic('internal_notification_audit_failed', { category: 'internal_notification', notificationType: input.type });
