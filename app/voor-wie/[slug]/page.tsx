@@ -49,15 +49,20 @@ const audiences: Record<string, Audience> = {
     // sport_lineup_slots resp. activity_duties/activity_duty_assignments)
     // - geen enkel routebestand, component of RPC-aanroep in de repo
     // gebruikt deze tabellen. Verwijderd. Aanwezigheid/"wie moet reageren"
-    // (activity_attendance) en groepsgericht communiceren (member_groups +
-    // de bestaande inbox-doelgroepfunctionaliteit) zijn wél aantoonbaar
-    // live en actief gebruikt - behouden, "team" hier bewust als voorbeeld
-    // geformuleerd (een expliciete "team"-categorie bestaat niet apart,
-    // het is een generieke groepsfunctie).
+    // (activity_attendance) is aantoonbaar live en actief gebruikt.
+    //
+    // CORRECTIE (Modulecontent 2.0-onderzoek, strenger bewijs): de eerdere
+    // formulering suggereerde dat een bericht naar een vrije groep/team kan
+    // - het strengere onderzoek naar de communicatiemodule zelf
+    // (master-beheer/src/features/communication-admin/communication-admin-
+    // screens.tsx) toont dat doelgroepselectie voor geautomatiseerde/
+    // geplande communicatie hard beperkt is tot exact twee opties:
+    // 'all_members' en 'board_and_admin' - geen vrije teams/groepen. De
+    // zin hieronder noemt daarom uitsluitend die twee bewezen opties.
     intro: "Trainingen en wedstrijden, en een ledenbestand dat ieder seizoen verandert - een sportvereniging draait op mensen die weten wat er van hen verwacht wordt.",
     processes: [
       "Trainingen en wedstrijden delen, en zien wie er nog moet reageren",
-      "Een bericht gericht naar een groep leden sturen - bijvoorbeeld een team - in plaats van naar de hele club",
+      "Een bericht sturen naar alle leden, of alleen naar bestuur en beheerders - in plaats van los rondappen",
       "Ledencontact overzichtelijk houden, ook als het ledenbestand ieder seizoen verandert",
     ],
     modules: ["Agenda", "Ledenadministratie", "Communicatie"],
