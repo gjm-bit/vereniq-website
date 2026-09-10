@@ -42,11 +42,23 @@ const audiences: Record<string, Audience> = {
   },
   "sportverenigingen": {
     title: "sportverenigingen",
-    intro: "Trainingen, wedstrijden, kantinediensten en een ledenbestand dat ieder seizoen verandert - een sportvereniging draait op mensen die weten wat er van hen verwacht wordt.",
+    // GO-verificatie (Vindbaarheid 2.0): "wie er speelt" (opstelling) en
+    // "kantinediensten inplannen" zijn tegen de daadwerkelijke live
+    // applicatiecode gecontroleerd, niet alleen tegen local.ts. Beide
+    // bleken alleen als databaseschema te bestaan (sport_lineups/
+    // sport_lineup_slots resp. activity_duties/activity_duty_assignments)
+    // - geen enkel routebestand, component of RPC-aanroep in de repo
+    // gebruikt deze tabellen. Verwijderd. Aanwezigheid/"wie moet reageren"
+    // (activity_attendance) en groepsgericht communiceren (member_groups +
+    // de bestaande inbox-doelgroepfunctionaliteit) zijn wél aantoonbaar
+    // live en actief gebruikt - behouden, "team" hier bewust als voorbeeld
+    // geformuleerd (een expliciete "team"-categorie bestaat niet apart,
+    // het is een generieke groepsfunctie).
+    intro: "Trainingen en wedstrijden, en een ledenbestand dat ieder seizoen verandert - een sportvereniging draait op mensen die weten wat er van hen verwacht wordt.",
     processes: [
-      "Trainingen en wedstrijden delen, inclusief wie er speelt en wie er nog moet reageren",
-      "Vrijwilligers en kantinediensten inplannen zonder een apart schema bij te houden",
-      "Ledencontact per team of leeftijdsgroep, in plaats van één mail aan de hele club",
+      "Trainingen en wedstrijden delen, en zien wie er nog moet reageren",
+      "Een bericht gericht naar een groep leden sturen - bijvoorbeeld een team - in plaats van naar de hele club",
+      "Ledencontact overzichtelijk houden, ook als het ledenbestand ieder seizoen verandert",
     ],
     modules: ["Agenda", "Ledenadministratie", "Communicatie"],
   },
