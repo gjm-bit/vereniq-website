@@ -21,6 +21,14 @@ import "./trial-signup.css";
 import "./header-footer-branding.css";
 import "./waarom-meer-vereniging.css";
 
+// SEO Vindbaarheid 2.0 (nightshift): sitewide OpenGraph/Twitter-defaults.
+// Elke pagina erft dit tenzij ze het zelf overschrijft (Next.js metadata-
+// merging) - er was voorheen sitewide GEEN enkele OG/Twitter-tag, wat de
+// weergave bij het delen van elke pagina-link aan het toeval overliet. Het
+// gebruikte beeld is het bestaande, echte merklogo (public/brand/meer-
+// vereniging-brand-lockup.png) - geen verzonnen productscreenshot.
+const OG_IMAGE = { url: "/brand/meer-vereniging-brand-lockup.png", width: 588, height: 516, alt: "Meer Vereniging" };
+
 export const metadata: Metadata = {
   title: { default: "Meer Vereniging — Minder regelen. Meer verenigen.", template: "%s | Meer Vereniging" },
   description: "Het complete platform voor verenigingen die minder willen regelen en meer willen verenigen.",
@@ -30,6 +38,16 @@ export const metadata: Metadata = {
   // icoon, met een veilige fallback naar exact deze huidige standaard-
   // afbeelding zolang er geen eigen icoon is ingesteld.
   icons: { icon: "/site-icon", shortcut: "/site-icon" },
+  openGraph: {
+    siteName: "Meer Vereniging",
+    locale: "nl_NL",
+    type: "website",
+    images: [OG_IMAGE],
+  },
+  twitter: {
+    card: "summary",
+    images: [OG_IMAGE.url],
+  },
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

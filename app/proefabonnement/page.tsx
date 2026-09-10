@@ -7,6 +7,7 @@ import { getPublicTrialColorPresets, getPublicTrialPeriodDays } from "@/src/lib/
 export const metadata: Metadata = {
   title: "Probeer gratis",
   description: "Start een gratis proefabonnement voor je vereniging - geen creditcard nodig.",
+  alternates: { canonical: "/proefabonnement" },
 };
 
 export default async function ProefabonnementPage() {

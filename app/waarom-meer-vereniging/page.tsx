@@ -8,6 +8,7 @@ export const metadata: Metadata = {
   title: "Waarom Meer Vereniging?",
   description:
     "Gebouwd voor verenigingen, met de zorgvuldigheid van professionele bedrijfssoftware. Ontdek hoe Meer Vereniging omgaat met veiligheid, privacy en releasekwaliteit.",
+  alternates: { canonical: "/waarom-meer-vereniging" },
 };
 
 /**
