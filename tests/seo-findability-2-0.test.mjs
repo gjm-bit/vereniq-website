@@ -29,7 +29,11 @@ test("app/voor-wie/page.tsx: title bevat niet meer de dubbele merknaam (het site
 test("app/modules/[slug]/page.tsx: heeft nu generateMetadata + canonical + BreadcrumbList JSON-LD (voorheen volledig afwezig)", async () => {
   const source = await read("app/modules/[slug]/page.tsx");
   assert.match(source, /export async function generateMetadata/);
-  assert.match(source, /alternates:\{canonical:`\/modules\/\$\{m\.slug\}`\}/);
+  // Sinds P0 (modulepagina's één bron van waarheid) wordt canonical via een
+  // gedeelde `canonical`-variabele gezet i.p.v. inline - zie
+  // tests/modules-cms-single-source-of-truth.test.mjs voor de volledige,
+  // actuele dekking van die logica. Hier alleen nog de basisaanwezigheid.
+  assert.match(source, /const canonical = `\/modules\/\$\{slug\}`/);
   assert.match(source, /BreadcrumbList/);
 });
 
