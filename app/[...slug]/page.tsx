@@ -43,7 +43,14 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const slug = segments[0];
   const content = legal[slug];
   const meta = pageMeta[slug];
-  return { title: content?.title ?? meta?.[0] ?? "Meer Vereniging", description: content?.intro ?? meta?.[1], alternates: { canonical } };
+  // SEO Vindbaarheid 2.0 vervolgaudit: /over-ons en /over-ons-contact renderen
+  // (bewezen, zie app/over-ons-contact/page.tsx) identieke content - /over-ons-
+  // contact is de daadwerkelijke, in de hoofdnavigatie gelinkte bestemming
+  // (src/config/site.ts), /over-ons zelf heeft geen enkele interne link. Alleen
+  // dit ene pad canonicaliseert daarom elders naartoe; elk ander pad in deze
+  // catch-all (privacy/cookies/contact/demo/...) blijft self-canonical.
+  const resolvedCanonical = slug === "over-ons" ? "/over-ons-contact" : canonical;
+  return { title: content?.title ?? meta?.[0] ?? "Meer Vereniging", description: content?.intro ?? meta?.[1], alternates: { canonical: resolvedCanonical } };
 }
 
 function Form({ demo }: { demo: boolean }) { return <section className="section"><div className="container"><form className="form" action={`mailto:${site.email}`} method="post" encType="text/plain"><label className="field">Naam<input required name="name" /></label><label className="field">Vereniging<input required name="organization" /></label>{demo && <label className="field">Type vereniging<select name="associationType"><option>Muziekvereniging</option><option>Sportvereniging</option><option>Carnavalsvereniging</option><option>Stichting</option><option>Andere vereniging</option></select></label>}<label className="field">E-mail<input required type="email" name="email" /></label><label className="field">Waar kunnen we mee helpen?<textarea required name="message" /></label><p>Direct contact? <a href={`mailto:${site.email}`}>{site.email}</a></p><p className="muted">Je gegevens worden alleen gebruikt om je bericht te beantwoorden. Lees onze <Link href="/privacy">privacyinformatie</Link>.</p><button className="btn btn-primary">{demo ? "Vraag informatie aan" : "Verstuur bericht"}</button></form></div></section>; }

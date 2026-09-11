@@ -77,9 +77,23 @@ test("app/kennisbank/page.tsx: tijdelijk noindex zolang er 0 artikelen zijn (dun
 test("app/sitemap.ts: geen verzonnen identieke lastModified meer, kennisbank uitgesloten, waarom-meer-vereniging en /app toegevoegd", async () => {
   const source = await read("app/sitemap.ts");
   assert.doesNotMatch(source, /lastModified/, "geen lastModified-veld meer i.p.v. een onjuiste, identieke datum voor elke URL");
-  assert.match(source, /filter\(p=>p\.slug!=="kennisbank"\)/);
+  assert.match(source, /p\.slug!=="kennisbank"/);
   assert.match(source, /waarom-meer-vereniging/);
   assert.match(source, /STATIC_ROUTES.*"\/app"/s);
+});
+
+test("app/sitemap.ts: /over-ons (duplicate/orphan) uitgesloten, /over-ons-contact (primaire, genavigeerde bestemming) en de zes /voor-wie-doelgroeppagina's toegevoegd", async () => {
+  const source = await read("app/sitemap.ts");
+  assert.match(source, /p\.slug!=="over-ons"/, "over-ons moet net als kennisbank uit de sitemap-mapping gefilterd worden");
+  assert.match(source, /STATIC_ROUTES.*"\/over-ons-contact"/s);
+  for (const slug of ["muziekverenigingen", "sportverenigingen", "carnavalsverenigingen", "stichtingen", "kleine-verenigingen", "andere-verenigingen"]) {
+    assert.match(source, new RegExp(`/voor-wie/${slug}`), `STATIC_ROUTES moet /voor-wie/${slug} bevatten`);
+  }
+});
+
+test("app/[...slug]/page.tsx: /over-ons canonicaliseert naar /over-ons-contact (bewezen duplicate/orphan-fix), andere paden blijven self-canonical", async () => {
+  const source = await read("app/[...slug]/page.tsx");
+  assert.match(source, /slug === "over-ons" \? "\/over-ons-contact" : canonical/);
 });
 
 test("app/llms.txt/route.ts: verwijst naar alleen bestaande, echte pagina's (geen verzonnen URL's)", async () => {
