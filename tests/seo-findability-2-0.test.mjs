@@ -13,6 +13,18 @@ import test from "node:test";
 const stripComments = (source) => source.split("\n").map((line) => (line.trim().startsWith("//") ? "" : line)).join("\n");
 const read = async (relativePath) => stripComments(await readFile(new URL(`../${relativePath}`, import.meta.url), "utf8"));
 
+test("app/layout.tsx: Vindbaarheid 3.2 - Organization/WebSite/SoftwareApplication hebben stabiele @id's, WebSite en SoftwareApplication verwijzen expliciet naar Organization als publisher (geen gedupliceerde volledige objecten)", async () => {
+  const source = await read("app/layout.tsx");
+  assert.match(source, /organizationId\s*=\s*`\$\{url\}\/#organization`/);
+  assert.match(source, /websiteId\s*=\s*`\$\{url\}\/#website`/);
+  assert.match(source, /softwareId\s*=\s*`\$\{url\}\/#software`/);
+  assert.match(source, /"@type":\s*"Organization",\s*"@id":\s*organizationId/);
+  assert.match(source, /"@type":\s*"WebSite",\s*"@id":\s*websiteId,[\s\S]*?publisher:\s*\{\s*"@id":\s*organizationId\s*\}/);
+  assert.match(source, /"@type":\s*"SoftwareApplication",\s*"@id":\s*softwareId,[\s\S]*?publisher:\s*\{\s*"@id":\s*organizationId\s*\}/);
+  // publisher moet een @id-referentie zijn, nooit een tweede, gedupliceerd Organization-object
+  assert.doesNotMatch(source, /publisher:\s*\{\s*"@type":\s*"Organization"/, "publisher moet {\"@id\":...} zijn, geen gedupliceerd Organization-object");
+});
+
 test("app/layout.tsx: sitewide OpenGraph/Twitter-defaults met een echt merkbeeld (geen verzonnen productscreenshot)", async () => {
   const source = await read("app/layout.tsx");
   assert.match(source, /openGraph:\s*{/);
@@ -100,8 +112,15 @@ test("app/llms.txt/route.ts: verwijst naar alleen bestaande, echte pagina's (gee
   const source = await read("app/llms.txt/route.ts");
   const referencedPaths = [...source.matchAll(/- (\/[a-z-]*)/g)].map((match) => match[1]);
   assert.ok(referencedPaths.length >= 5, "llms.txt moet meerdere pagina's noemen");
-  const realRoutes = ["/platform", "/modules", "/voor-wie", "/prijzen", "/waarom-meer-vereniging", "/beveiliging", "/over-ons", "/proefabonnement"];
+  const realRoutes = ["/app", "/platform", "/modules", "/voor-wie", "/prijzen", "/waarom-meer-vereniging", "/beveiliging", "/over-ons-contact", "/proefabonnement"];
   for (const path of referencedPaths) {
     assert.ok(realRoutes.includes(path), `${path} moet een echte, bestaande route zijn`);
   }
+});
+
+test("app/llms.txt/route.ts: Vindbaarheid 3.2 - /app is toegevoegd, /over-ons-contact vervangt de stale /over-ons-verwijzing (bewezen duplicate)", async () => {
+  const source = await read("app/llms.txt/route.ts");
+  assert.match(source, /- \/app - /, "llms.txt moet /app noemen - de belangrijkste, meest onderscheidende pagina van de site");
+  assert.match(source, /- \/over-ons-contact - /, "llms.txt moet naar de primaire /over-ons-contact wijzen");
+  assert.doesNotMatch(source, /- \/over-ons - /, "llms.txt mag /over-ons niet meer als eigen lijstitem noemen (canonicaliseert naar /over-ons-contact)");
 });

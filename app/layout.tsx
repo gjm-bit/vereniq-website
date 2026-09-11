@@ -52,10 +52,21 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const url = process.env.NEXT_PUBLIC_SITE_URL || "https://meervereniging.nl";
+  // Vindbaarheid 3.2 (AI-vindbaarheidsaudit): stabiele @id's + expliciete
+  // publisher-relaties, zodat een zoekmachine/AI-systeem niet langer op
+  // gelijke naam hoeft te vertrouwen om te concluderen dat dit dezelfde
+  // ene organisatie/product is. `provider`/`author` bewust NIET toegevoegd
+  // op SoftwareApplication naast `publisher` - dat zou dezelfde relatie
+  // (Meer Vereniging → deze organisatie) nodeloos dupliceren in een tweede,
+  // semantisch overlappende property, niet een nieuw, feitelijk juist
+  // gegeven toevoegen.
+  const organizationId = `${url}/#organization`;
+  const websiteId = `${url}/#website`;
+  const softwareId = `${url}/#software`;
   const structuredData = { "@context": "https://schema.org", "@graph": [
-    { "@type": "Organization", name: "Meer Vereniging", url, description: "Verenigingssoftware voor leden, agenda, communicatie en beheer." },
-    { "@type": "WebSite", name: "Meer Vereniging", url },
-    { "@type": "SoftwareApplication", name: "Meer Vereniging", applicationCategory: "BusinessApplication", operatingSystem: "Web", description: "Eén compleet platform voor verenigingen met leden, teams, vrijwilligers en commissies." },
+    { "@type": "Organization", "@id": organizationId, name: "Meer Vereniging", url, description: "Verenigingssoftware voor leden, agenda, communicatie en beheer." },
+    { "@type": "WebSite", "@id": websiteId, name: "Meer Vereniging", url, publisher: { "@id": organizationId } },
+    { "@type": "SoftwareApplication", "@id": softwareId, name: "Meer Vereniging", applicationCategory: "BusinessApplication", operatingSystem: "Web", description: "Eén compleet platform voor verenigingen met leden, teams, vrijwilligers en commissies.", publisher: { "@id": organizationId } },
   ] };
   return <html lang="nl"><body>{children}<WebsiteStatsBeacon /><script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }} /></body></html>;
 }
