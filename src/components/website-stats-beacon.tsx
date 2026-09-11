@@ -10,6 +10,14 @@
 // niets bewaard over een sessie heen. Zie app/api/website-stats/pageview/
 // route.ts voor wat er wél/nooit wordt opgeslagen, en /cookies voor de
 // bijbehorende toelichting aan bezoekers.
+//
+// WEBSITE STATISTIEKEN 1.2 (AI-vindbaarheid): resolveUtmSource() leest
+// bewust rechtstreeks `window.location.search` (net als resolveReferrerHost/
+// resolveDeviceType hierboven al `document`/`window` lezen), in plaats van
+// Next.js' `useSearchParams()`-hook - dat voorkomt elke kans dat deze
+// sitewide, in de rootlayout gerenderde component de statische prerendering
+// van de rest van de site zou beïnvloeden. Er wordt uitsluitend de ENE
+// `utm_source`-parameter gelezen, nooit de rest van de querystring.
 
 import { usePathname } from "next/navigation";
 import { useEffect, useRef } from "react";
@@ -32,6 +40,15 @@ function resolveReferrerHost(): string | null {
     const referrer = new URL(document.referrer);
     if (typeof window !== "undefined" && referrer.hostname === window.location.hostname) return null;
     return referrer.hostname.toLowerCase();
+  } catch {
+    return null;
+  }
+}
+
+function resolveUtmSource(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return new URLSearchParams(window.location.search).get("utm_source");
   } catch {
     return null;
   }
@@ -63,6 +80,7 @@ export function WebsiteStatsBeacon() {
       referrerHost: resolveReferrerHost(),
       deviceType: resolveDeviceType(),
       newSession: resolveIsNewSession(),
+      utmSource: resolveUtmSource(),
     });
 
     try {
