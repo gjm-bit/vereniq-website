@@ -18,11 +18,28 @@
 // sitewide, in de rootlayout gerenderde component de statische prerendering
 // van de rest van de site zou beïnvloeden. Er wordt uitsluitend de ENE
 // `utm_source`-parameter gelezen, nooit de rest van de querystring.
+//
+// WEBSITE STATISTIEKEN 1.3 (AI-bezoeken): een AI-sessie mag maximaal ÉÉN
+// AI-bezoek registreren, ook als de bezoeker binnen die sessie nog meerdere
+// interne pagina's bekijkt (of zelfs een ANDER AI-platform detecteert - zie
+// AI_SESSION_SOURCE_KEY hieronder, "first-touch", sticky voor de rest van de
+// sessie). Dit is dezelfde sessionStorage-mechaniek als SESSION_FLAG_KEY
+// hierboven (1.1): niet-persistent, gewist zodra het tabblad sluit, nooit
+// een identificerende waarde - alleen een van de 5 vaste AI-bronsleutels of
+// niets. Cross-sessie nieuw/terugkerend (die een PERSISTENTE clientwaarde
+// zou vereisen, bv. localStorage) wordt hier bewust NIET geïmplementeerd:
+// daarvoor bestaat op dit moment geen consent-/privacybasis op deze site
+// (de gepubliceerde /cookies-pagina committeert zich expliciet aan "geen
+// analytics zonder voorafgaande toestemming"). De server (route.ts) stuurt
+// hiervoor dus altijd een vaste, niet-classificerende waarde mee - zie daar.
 
 import { usePathname } from "next/navigation";
 import { useEffect, useRef } from "react";
 
+import { resolveAiSource } from "@/src/lib/ai-referral-source";
+
 const SESSION_FLAG_KEY = "mv_stats_session_seen";
+const AI_SESSION_SOURCE_KEY = "mv_ai_session_source";
 const ENDPOINT = "/api/website-stats/pageview";
 
 function resolveDeviceType(): "mobile" | "desktop" | "unknown" {
@@ -54,6 +71,32 @@ function resolveUtmSource(): string | null {
   }
 }
 
+/**
+ * Leest de AI-bron waaraan DEZE browsersessie eerder al is toegeschreven
+ * (indien aanwezig) - "first-touch", nooit overschreven door een latere,
+ * andere detectie binnen dezelfde sessie (voorkomt een dubbel AI-bezoek als
+ * een bezoeker binnen één sessie via twee verschillende AI-platforms
+ * doorklikt). Retourneert null als deze sessie nog geen AI-bron heeft.
+ */
+function resolvePriorAiSessionSource(): string | null {
+  try {
+    return sessionStorage.getItem(AI_SESSION_SOURCE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function persistAiSessionSourceIfNew(directAiSource: string | null, priorAiSource: string | null): void {
+  if (priorAiSource || !directAiSource) return;
+  try {
+    sessionStorage.setItem(AI_SESSION_SOURCE_KEY, directAiSource);
+  } catch {
+    // sessionStorage onbeschikbaar - de paginaweergave/het AI-bezoek van
+    // déze pageview telt nog gewoon mee, alleen de sessie-brede sticky
+    // toeschrijving voor latere pagina's in dezelfde sessie lukt dan niet.
+  }
+}
+
 function resolveIsNewSession(): boolean {
   try {
     if (sessionStorage.getItem(SESSION_FLAG_KEY)) return false;
@@ -75,12 +118,25 @@ export function WebsiteStatsBeacon() {
     if (!pathname || sentForPathname.current === pathname) return;
     sentForPathname.current = pathname;
 
+    const referrerHost = resolveReferrerHost();
+    const utmSource = resolveUtmSource();
+    const directAiSource = resolveAiSource({ referrerHost, utmSource });
+    const priorAiSessionSource = resolvePriorAiSessionSource();
+    persistAiSessionSourceIfNew(directAiSource, priorAiSessionSource);
+
     const payload = JSON.stringify({
       path: pathname,
-      referrerHost: resolveReferrerHost(),
+      referrerHost,
       deviceType: resolveDeviceType(),
       newSession: resolveIsNewSession(),
-      utmSource: resolveUtmSource(),
+      utmSource,
+      // WEBSITE STATISTIEKEN 1.3: rapporteert uitsluitend de AI-bron waaraan
+      // déze sessie VÓÓR deze paginaweergave al was toegeschreven (of null) -
+      // nooit een vrije waarde, altijd een van de 5 vaste sleutels. De
+      // server bepaalt hiermee of dit de EERSTE AI-paginaweergave van de
+      // sessie is (een nieuw AI-bezoek) of een vervolgpagina binnen een
+      // reeds lopend AI-bezoek.
+      aiSessionSource: priorAiSessionSource,
     });
 
     try {

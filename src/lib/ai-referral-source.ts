@@ -17,6 +17,19 @@
 
 export type AiSourceKey = "chatgpt" | "microsoft_copilot" | "perplexity" | "gemini" | "claude";
 
+const AI_SOURCE_KEYS: ReadonlySet<string> = new Set<AiSourceKey>(["chatgpt", "microsoft_copilot", "perplexity", "gemini", "claude"]);
+
+/**
+ * WEBSITE STATISTIEKEN 1.3: bewijst dat een waarde exact een van de 5 vaste
+ * sleutels is - gebruikt om een door de client meegestuurde "sessie was al
+ * aan een AI-bron toegeschreven"-waarde server-side te valideren (zie
+ * website-stats-beacon.tsx/route.ts) zonder de allowlist een tweede keer los
+ * te definiëren.
+ */
+export function isKnownAiSourceKey(value: unknown): value is AiSourceKey {
+  return typeof value === "string" && AI_SOURCE_KEYS.has(value);
+}
+
 const AI_REFERRER_HOSTS: Readonly<Record<string, AiSourceKey>> = {
   "chatgpt.com": "chatgpt",
   "www.chatgpt.com": "chatgpt",

@@ -18,9 +18,21 @@
 // hier alleen gebruikt om aan de vaste AI-bron-allowlist te toetsen; wat
 // wordt opgeslagen is uitsluitend een van de 5 vaste sleutels of niets -
 // nooit de ruwe utm_source-tekst, nooit de querystring zelf.
+//
+// WEBSITE STATISTIEKEN 1.3 (AI-bezoeken): de client stuurt daarnaast
+// `aiSessionSource` mee - de AI-bron waaraan déze browsersessie VÓÓR deze
+// paginaweergave al was toegeschreven (sessionStorage, zie website-stats-
+// beacon.tsx), of null. Deze route bepaalt hieruit `aiSource` (directe
+// detectie op deze pageview, anders de al-lopende sessiebron - zodat een
+// AI-sessie van meerdere pagina's ALLEMAAL als AI-paginaweergave tellen) en
+// `aiVisitStart` (true alleen op de pageview waarmee de sessie voor het
+// eerst aan een AI-bron wordt toegeschreven - hooguit 1 AI-bezoek per
+// sessie, ongeacht latere platformwissels binnen diezelfde sessie). Cross-
+// sessie nieuw/terugkerend wordt hier bewust NIET ingevuld (geen consent-
+// basis, zie website-stats-beacon.tsx) - altijd `null` naar de RPC.
 
 import { createServerSupabaseAdminClient } from '@/src/lib/server/supabase-admin';
-import { resolveAiSource } from '@/src/lib/ai-referral-source';
+import { resolveAiSource, isKnownAiSourceKey } from '@/src/lib/ai-referral-source';
 
 export const runtime = 'nodejs';
 
@@ -72,7 +84,14 @@ export async function POST(request: Request) {
   // toetsen aan de vaste AI-bron-allowlist in resolveAiSource - de ruwe
   // waarde wordt hierna nergens meer gebruikt, gelogd of opgeslagen.
   const rawUtmSource = typeof body.utmSource === 'string' ? body.utmSource : null;
-  const aiSource = resolveAiSource({ referrerHost, utmSource: rawUtmSource });
+  const directAiSource = resolveAiSource({ referrerHost, utmSource: rawUtmSource });
+  // WEBSITE STATISTIEKEN 1.3: een sessie-brede AI-bron mag alleen worden
+  // overgenomen als de client een van de 5 vaste sleutels rapporteert - nooit
+  // vrije tekst (isKnownAiSourceKey is dezelfde allowlist als resolveAiSource
+  // zelf gebruikt, zie ai-referral-source.ts).
+  const priorAiSessionSource = isKnownAiSourceKey(body.aiSessionSource) ? body.aiSessionSource : null;
+  const aiSource = directAiSource ?? priorAiSessionSource;
+  const aiVisitStart = aiSource !== null && priorAiSessionSource === null;
 
   const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || 'https://meervereniging.nl').replace(/\/$/, '');
 
@@ -91,6 +110,10 @@ export async function POST(request: Request) {
       target_device_type: deviceType,
       target_new_session: newSession,
       target_ai_source: aiSource,
+      target_ai_visit_start: aiVisitStart,
+      // Cross-sessie nieuw/terugkerend: geen consentbasis, dus altijd null
+      // (zie bestandskop) - de RPC ondersteunt dit al forward-compatible.
+      target_ai_visit_kind: null,
     });
   } catch {
     // Nooit loggen met request-inhoud (geen IP/UA hier aanwezig om te

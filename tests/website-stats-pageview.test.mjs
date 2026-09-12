@@ -95,3 +95,45 @@ test("app/api/proefabonnement/*: geen regressie - de bestaande routes zijn niet 
   const aanvraag = await read("app/api/proefabonnement/aanvraag/route.ts");
   assert.match(aanvraag, /admin\.rpc\('platform_trial_signup_request', \{/);
 });
+
+// ============================================================
+// WEBSITE STATISTIEKEN 1.3 — AI-bezoeken: unieke sessies + terugkerende
+// bezoeken. Dekt: een AI-sessie mag maximaal 1 AI-bezoek registreren (ook na
+// een latere, andere platformdetectie binnen dezelfde sessie), geen
+// localStorage (geen consentbasis), en dat de route dit nooit blindelings
+// van de client overneemt (server valideert tegen de vaste allowlist).
+// ============================================================
+
+test("de beacon houdt de sessie-brede AI-bron bij via sessionStorage, nooit localStorage (geen consentbasis)", async () => {
+  const source = await read("src/components/website-stats-beacon.tsx");
+  assert.match(source, /AI_SESSION_SOURCE_KEY = "mv_ai_session_source"/);
+  assert.doesNotMatch(source, /localStorage/, "cross-sessie opslag vereist consent die nog niet bestaat - alleen sessionStorage");
+});
+
+test("de beacon overschrijft een eenmaal vastgestelde AI-sessiebron nooit (first-touch, sticky, voorkomt een dubbel AI-bezoek bij een latere, andere platformdetectie)", async () => {
+  const source = await read("src/components/website-stats-beacon.tsx");
+  const fnMatch = source.match(/function persistAiSessionSourceIfNew\([\s\S]*?\n\}/);
+  assert.ok(fnMatch, "persistAiSessionSourceIfNew moet bestaan");
+  assert.match(fnMatch[0], /if \(priorAiSource \|\| !directAiSource\) return;/, "een reeds bestaande sessiebron mag nooit overschreven worden door een latere, andere detectie");
+});
+
+test("de beacon stuurt de sessiebron mee als aiSessionSource, nooit als vrije tekst uit de querystring", async () => {
+  const source = await read("src/components/website-stats-beacon.tsx");
+  assert.match(source, /aiSessionSource: priorAiSessionSource/);
+});
+
+test("de route valideert een door de client gerapporteerde sessiebron tegen de vaste allowlist - vertrouwt de client nooit blind op een nieuwe rol", async () => {
+  const source = await read("app/api/website-stats/pageview/route.ts");
+  assert.match(source, /isKnownAiSourceKey\(body\.aiSessionSource\)/);
+});
+
+test("de route telt een AI-bezoek alleen als startpunt (aiVisitStart) op de EERSTE AI-paginaweergave van de sessie, nooit op vervolgpagina's binnen dezelfde sessie", async () => {
+  const source = await read("app/api/website-stats/pageview/route.ts");
+  assert.match(source, /const aiSource = directAiSource \?\? priorAiSessionSource;/);
+  assert.match(source, /const aiVisitStart = aiSource !== null && priorAiSessionSource === null;/);
+});
+
+test("de route stuurt nooit een verzonnen nieuw/terugkerend-classificatie - target_ai_visit_kind is altijd null (geen consentbasis voor cross-sessie-detectie)", async () => {
+  const source = await read("app/api/website-stats/pageview/route.ts");
+  assert.match(source, /target_ai_visit_kind: null/);
+});
