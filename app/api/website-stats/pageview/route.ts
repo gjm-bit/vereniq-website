@@ -11,8 +11,16 @@
 // 1_1_traffic.sql) - dezelfde vertrouwensgrens als de proefabonnement-
 // aanvraagroute. Faalt altijd zacht: een mislukte telling mag de
 // paginaweergave van een bezoeker nooit zichtbaar breken.
+//
+// WEBSITE STATISTIEKEN 1.2 (AI-vindbaarheid): de client mag daarnaast een
+// `utmSource`-veld meesturen - de ENIGE querystring-waarde die deze route
+// ooit leest (zie src/lib/ai-referral-source.ts). Die ruwe waarde wordt
+// hier alleen gebruikt om aan de vaste AI-bron-allowlist te toetsen; wat
+// wordt opgeslagen is uitsluitend een van de 5 vaste sleutels of niets -
+// nooit de ruwe utm_source-tekst, nooit de querystring zelf.
 
 import { createServerSupabaseAdminClient } from '@/src/lib/server/supabase-admin';
+import { resolveAiSource } from '@/src/lib/ai-referral-source';
 
 export const runtime = 'nodejs';
 
@@ -59,6 +67,12 @@ export async function POST(request: Request) {
   const referrerHost = normalizeReferrerHost(body.referrerHost);
   const deviceType = normalizeDeviceType(body.deviceType);
   const newSession = body.newSession === true;
+  // WEBSITE STATISTIEKEN 1.2: utm_source is de enige querystring-waarde die
+  // ooit gelezen wordt (zie WebsiteStatsBeacon), en uitsluitend om te
+  // toetsen aan de vaste AI-bron-allowlist in resolveAiSource - de ruwe
+  // waarde wordt hierna nergens meer gebruikt, gelogd of opgeslagen.
+  const rawUtmSource = typeof body.utmSource === 'string' ? body.utmSource : null;
+  const aiSource = resolveAiSource({ referrerHost, utmSource: rawUtmSource });
 
   const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || 'https://meervereniging.nl').replace(/\/$/, '');
 
@@ -76,6 +90,7 @@ export async function POST(request: Request) {
       target_referrer_host: referrerHost,
       target_device_type: deviceType,
       target_new_session: newSession,
+      target_ai_source: aiSource,
     });
   } catch {
     // Nooit loggen met request-inhoud (geen IP/UA hier aanwezig om te

@@ -56,7 +56,34 @@ test("de beacon telt een pagina van dezelfde site nooit mee als externe verwijze
 test("de beacon stuurt geen pad met querystring/fragment mee (usePathname geeft alleen het pad, nooit search/hash)", async () => {
   const source = await read("src/components/website-stats-beacon.tsx");
   assert.match(source, /import \{ usePathname \} from "next\/navigation";/);
-  assert.doesNotMatch(source, /location\.search|location\.hash|window\.location\.href/);
+  assert.doesNotMatch(source, /location\.hash|window\.location\.href/);
+  // WEBSITE STATISTIEKEN 1.2: window.location.search wordt nu wél gelezen,
+  // maar uitsluitend binnen resolveUtmSource() om de ENE utm_source-waarde
+  // eruit te halen - nooit om de ruwe querystring door te geven, en nooit
+  // als onderdeel van het verstuurde `path`-veld zelf (dat blijft `pathname`
+  // uit usePathname).
+  assert.match(source, /function resolveUtmSource\(\)[\s\S]*?window\.location\.search[\s\S]*?\.get\("utm_source"\)/);
+  assert.doesNotMatch(source, /path:\s*pathname\s*\+/, "path mag nooit met de querystring worden samengevoegd");
+});
+
+test("de beacon leest uitsluitend utm_source uit de querystring (geen andere parameter, geen ruwe querystring)", async () => {
+  const source = await read("src/components/website-stats-beacon.tsx");
+  const fnMatch = source.match(/function resolveUtmSource\(\)[\s\S]*?\n\}/);
+  assert.ok(fnMatch, "resolveUtmSource moet bestaan");
+  assert.doesNotMatch(fnMatch[0], /window\.location\.search(?!\)\.get\("utm_source"\))/, "search wordt alleen doorgegeven aan URLSearchParams, nooit los opgeslagen/verstuurd");
+});
+
+test("Website Statistieken 1.2 - de centrale AI-bronresolver bestaat en wordt door zowel de beacon als de route gebruikt (geen verspreide hardcoded domeinlijstjes)", async () => {
+  const beacon = await read("src/components/website-stats-beacon.tsx");
+  const route = await read("app/api/website-stats/pageview/route.ts");
+  const resolver = await read("src/lib/ai-referral-source.ts");
+  assert.match(beacon, /resolveUtmSource\(\)/);
+  assert.match(route, /from '@\/src\/lib\/ai-referral-source'/);
+  assert.match(route, /resolveAiSource\(\{ referrerHost, utmSource: rawUtmSource \}\)/);
+  assert.match(route, /target_ai_source: aiSource/);
+  // Geen los, tweede hardcoded AI-domeinlijstje in de route zelf.
+  assert.doesNotMatch(route, /chatgpt\.com|perplexity\.ai|copilot\.microsoft\.com/);
+  assert.match(resolver, /"chatgpt\.com":\s*"chatgpt"/);
 });
 
 test("de beacon staat in de root layout, dus op elke paginaweergave van de publieke website", async () => {
