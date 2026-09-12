@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { resolveAiSource, resolveAiSourceFromReferrerHost, resolveAiSourceFromUtmSource } from "../src/lib/ai-referral-source.ts";
+import { resolveAiSource, resolveAiSourceFromReferrerHost, resolveAiSourceFromUtmSource, isKnownAiSourceKey } from "../src/lib/ai-referral-source.ts";
 
 // WEBSITE STATISTIEKEN 1.2 (AI-vindbaarheid) - dekt de ene centrale
 // AI-bronresolver die de beacon en de pageview-route allebei gebruiken.
@@ -56,4 +56,25 @@ test("bronprioriteit: zonder geldige utm_source valt terug op een bekende AI-ref
 test("geen enkele AI-bron: gewoon bestaand, niet-AI-verkeer blijft ongemoeid", () => {
   assert.equal(resolveAiSource({ referrerHost: "www.google.com", utmSource: null }), null);
   assert.equal(resolveAiSource({ referrerHost: null, utmSource: null }), null, "direct verkeer blijft null");
+});
+
+// WEBSITE STATISTIEKEN 1.3 (AI-bezoeken) - isKnownAiSourceKey valideert een
+// door de client gerapporteerde "sessie was al aan een AI-bron toegeschreven"
+// -waarde (website-stats-beacon.tsx/route.ts), zonder de allowlist een
+// tweede keer los te definiëren.
+
+test("isKnownAiSourceKey herkent exact de 5 vaste sleutels, niets anders", () => {
+  for (const key of ["chatgpt", "microsoft_copilot", "perplexity", "gemini", "claude"]) {
+    assert.equal(isKnownAiSourceKey(key), true, `${key} moet een geldige sleutel zijn`);
+  }
+});
+
+test("isKnownAiSourceKey wijst vrije tekst, null, en niet-stringwaarden af", () => {
+  assert.equal(isKnownAiSourceKey("nieuwsbrief"), false);
+  assert.equal(isKnownAiSourceKey("ChatGPT"), false, "hoofdlettergevoelig - alleen de exacte, al-genormaliseerde sleutel telt");
+  assert.equal(isKnownAiSourceKey(""), false);
+  assert.equal(isKnownAiSourceKey(null), false);
+  assert.equal(isKnownAiSourceKey(undefined), false);
+  assert.equal(isKnownAiSourceKey(42), false);
+  assert.equal(isKnownAiSourceKey({ source: "chatgpt" }), false);
 });
