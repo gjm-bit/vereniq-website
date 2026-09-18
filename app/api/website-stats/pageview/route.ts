@@ -27,10 +27,15 @@
 // AI-sessie van meerdere pagina's ALLEMAAL als AI-paginaweergave tellen) en
 // `aiVisitStart` (true alleen op de pageview waarmee de sessie voor het
 // eerst aan een AI-bron wordt toegeschreven - hooguit 1 AI-bezoek per
-// sessie, ongeacht latere platformwissels binnen diezelfde sessie). Cross-
-// sessie nieuw/terugkerend wordt hier bewust NIET ingevuld (geen consent-
-// basis, zie website-stats-beacon.tsx) - altijd `null` naar de RPC.
-
+// sessie, ongeacht latere platformwissels binnen diezelfde sessie).
+//
+// WEBSITE STATISTIEKEN 1.4 (AI-bezoeken productmatig afronden): de client
+// stuurt daarnaast `aiVisitedBefore` mee - of dit apparaat vóór deze
+// paginaweergave al als eerder-bezocht bekend was (boolean), of `null`
+// zonder toestemming (zie website-stats-beacon.tsx/ai-visit-consent.ts).
+// Deze route bepaalt hieruit `aiVisitKind`: alleen op de pageview die een
+// AI-bezoek START (aiVisitStart) én met een bekende aiVisitedBefore-waarde
+// wordt dit 'new' of 'returning' - anders altijd null, nooit geraden.
 import { createServerSupabaseAdminClient } from '@/src/lib/server/supabase-admin';
 import { resolveAiSource, isKnownAiSourceKey } from '@/src/lib/ai-referral-source';
 
@@ -92,6 +97,11 @@ export async function POST(request: Request) {
   const priorAiSessionSource = isKnownAiSourceKey(body.aiSessionSource) ? body.aiSessionSource : null;
   const aiSource = directAiSource ?? priorAiSessionSource;
   const aiVisitStart = aiSource !== null && priorAiSessionSource === null;
+  // WEBSITE STATISTIEKEN 1.4: alleen een echte boolean van de client wordt
+  // vertrouwd - elke andere waarde (ontbrekend, geen toestemming) blijft
+  // null, en levert dus nooit een geraden nieuw/terugkerend-classificatie op.
+  const aiVisitedBefore = typeof body.aiVisitedBefore === 'boolean' ? body.aiVisitedBefore : null;
+  const aiVisitKind = aiVisitStart && aiVisitedBefore !== null ? (aiVisitedBefore ? 'returning' : 'new') : null;
 
   const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || 'https://meervereniging.nl').replace(/\/$/, '');
 
@@ -111,9 +121,7 @@ export async function POST(request: Request) {
       target_new_session: newSession,
       target_ai_source: aiSource,
       target_ai_visit_start: aiVisitStart,
-      // Cross-sessie nieuw/terugkerend: geen consentbasis, dus altijd null
-      // (zie bestandskop) - de RPC ondersteunt dit al forward-compatible.
-      target_ai_visit_kind: null,
+      target_ai_visit_kind: aiVisitKind,
     });
   } catch {
     // Nooit loggen met request-inhoud (geen IP/UA hier aanwezig om te

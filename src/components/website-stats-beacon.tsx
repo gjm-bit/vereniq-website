@@ -26,17 +26,24 @@
 // sessie). Dit is dezelfde sessionStorage-mechaniek als SESSION_FLAG_KEY
 // hierboven (1.1): niet-persistent, gewist zodra het tabblad sluit, nooit
 // een identificerende waarde - alleen een van de 5 vaste AI-bronsleutels of
-// niets. Cross-sessie nieuw/terugkerend (die een PERSISTENTE clientwaarde
-// zou vereisen, bv. localStorage) wordt hier bewust NIET geïmplementeerd:
-// daarvoor bestaat op dit moment geen consent-/privacybasis op deze site
-// (de gepubliceerde /cookies-pagina committeert zich expliciet aan "geen
-// analytics zonder voorafgaande toestemming"). De server (route.ts) stuurt
-// hiervoor dus altijd een vaste, niet-classificerende waarde mee - zie daar.
+// niets.
+//
+// WEBSITE STATISTIEKEN 1.4 (AI-bezoeken productmatig afronden): cross-sessie
+// nieuw/terugkerend was in 1.3 bewust NIET geïmplementeerd (geen
+// consentbasis). Sinds 1.4 kan een bezoeker daar expliciet toestemming voor
+// geven (zie src/components/consent-banner.tsx) - pas dan wordt
+// resolveAndMarkVisitedBefore() uit src/lib/ai-visit-consent.ts ooit
+// aangeroepen. Zonder toestemming (nog "undecided" of expliciet "denied")
+// wordt nooit gelezen of geschreven naar localStorage, en blijft
+// nieuw/terugkerend net als in 1.3 bewust unknown (null) - alleen de
+// bestaande, cookieloze/sessiegebonden AI-bezoek-uniciteit blijft dan
+// werken.
 
 import { usePathname } from "next/navigation";
 import { useEffect, useRef } from "react";
 
 import { resolveAiSource } from "@/src/lib/ai-referral-source";
+import { resolveConsentState, resolveAndMarkVisitedBefore } from "@/src/lib/ai-visit-consent";
 
 const SESSION_FLAG_KEY = "mv_stats_session_seen";
 const AI_SESSION_SOURCE_KEY = "mv_ai_session_source";
@@ -124,6 +131,12 @@ export function WebsiteStatsBeacon() {
     const priorAiSessionSource = resolvePriorAiSessionSource();
     persistAiSessionSourceIfNew(directAiSource, priorAiSessionSource);
 
+    // WEBSITE STATISTIEKEN 1.4: alleen gelezen/geschreven als toestemming is
+    // gegeven (zie ai-visit-consent.ts) - anders altijd null. Op ELKE
+    // paginaweergave aangeroepen (niet alleen AI-paginaweergaven): "eerder
+    // bezocht" is een sitebreed signaal, geen AI-specifiek signaal.
+    const priorVisitedBefore = resolveAndMarkVisitedBefore(resolveConsentState());
+
     const payload = JSON.stringify({
       path: pathname,
       referrerHost,
@@ -137,6 +150,10 @@ export function WebsiteStatsBeacon() {
       // sessie is (een nieuw AI-bezoek) of een vervolgpagina binnen een
       // reeds lopend AI-bezoek.
       aiSessionSource: priorAiSessionSource,
+      // WEBSITE STATISTIEKEN 1.4: of dit apparaat VÓÓR deze paginaweergave
+      // al als eerder-bezocht bekend was - boolean bij toestemming, anders
+      // altijd null (nooit stilzwijgend als "nieuw" geraden).
+      aiVisitedBefore: priorVisitedBefore,
     });
 
     try {
