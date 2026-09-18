@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { WebsiteStatsBeacon } from "@/src/components/website-stats-beacon";
+import { ConsentBanner } from "@/src/components/consent-banner";
 import "./globals.css";
 import "./dark-brand-canvas.css";
 import "./dark-premium-v2.css";
@@ -68,5 +69,5 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     { "@type": "WebSite", "@id": websiteId, name: "Meer Vereniging", url, publisher: { "@id": organizationId } },
     { "@type": "SoftwareApplication", "@id": softwareId, name: "Meer Vereniging", applicationCategory: "BusinessApplication", operatingSystem: "Web", description: "Eén compleet platform voor verenigingen met leden, teams, vrijwilligers en commissies.", publisher: { "@id": organizationId } },
   ] };
-  return <html lang="nl"><body>{children}<WebsiteStatsBeacon /><script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }} /></body></html>;
+  return <html lang="nl"><body>{children}<WebsiteStatsBeacon /><ConsentBanner /><script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }} /></body></html>;
 }

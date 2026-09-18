@@ -133,7 +133,10 @@ test("de route telt een AI-bezoek alleen als startpunt (aiVisitStart) op de EERS
   assert.match(source, /const aiVisitStart = aiSource !== null && priorAiSessionSource === null;/);
 });
 
-test("de route stuurt nooit een verzonnen nieuw/terugkerend-classificatie - target_ai_visit_kind is altijd null (geen consentbasis voor cross-sessie-detectie)", async () => {
+test("de route stuurt nooit een verzonnen nieuw/terugkerend-classificatie - target_ai_visit_kind komt uitsluitend uit een expliciete, boolean aiVisitedBefore-waarde van de client", async () => {
+  // Website Statistieken 1.4: sinds de minimale first-party toestemming
+  // (zie ai-visit-consent.ts) is dit niet langer altijd null - zie
+  // website-stats-ai-visit-recognition.test.mjs voor de volledige dekking.
   const source = await read("app/api/website-stats/pageview/route.ts");
-  assert.match(source, /target_ai_visit_kind: null/);
+  assert.match(source, /const aiVisitKind = aiVisitStart && aiVisitedBefore !== null \? \(aiVisitedBefore \? 'returning' : 'new'\) : null;/);
 });
